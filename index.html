@@ -265,8 +265,7 @@
             setDoc,
             deleteDoc,
             onSnapshot,
-            query,
-            writeBatch
+            query
         } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
         // Configuração do Firebase
@@ -730,6 +729,7 @@
             });
         };
 
+        // VERSÃO ULTRA-SIMPLIFICADA: SEM TRANSAÇÕES FUTURAS AUTOMÁTICAS
         const handleSaveShortcut = async (e) => {
             e.preventDefault();
             const form = e.target;
@@ -753,24 +753,18 @@
             };
 
             try {
-                console.log('Salvando atalho:', newShortcutData);
-                
-                let shortcutId = id;
+                console.log('Salvando atalho (versão simplificada):', newShortcutData);
                 
                 if (isEditing) {
-                    await setDoc(doc(db, `users/${AppState.userId}/shortcuts`, shortcutId), newShortcutData);
+                    await setDoc(doc(db, `users/${AppState.userId}/shortcuts`, id), newShortcutData);
                     console.log('Atalho atualizado');
                 } else {
                     const docRef = await addDoc(collection(db, `users/${AppState.userId}/shortcuts`), newShortcutData);
-                    shortcutId = docRef.id;
-                    console.log('Novo atalho criado com ID:', shortcutId);
+                    console.log('Novo atalho criado com ID:', docRef.id);
                 }
 
-                // SIMPLIFICADO: Criar apenas algumas transações futuras para atalhos fixos (não 60!)
-                if (newShortcutData.frequency === 'fixo') {
-                    console.log('Criando transações futuras (apenas 12 meses)...');
-                    await createFutureTransactions(shortcutId, newShortcutData);
-                }
+                // IMPORTANTE: NÃO criar transações futuras automaticamente
+                // O usuário pode criar manualmente quando precisar
                 
                 showToast(`Atalho ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`, 'success');
                 closeModal();
@@ -778,59 +772,25 @@
             } catch (error) {
                 console.error("Erro ao salvar atalho:", error);
                 showToast('Erro ao salvar o atalho: ' + error.message, 'error');
+            } finally {
+                // Sempre reabilitar o botão, mesmo em caso de erro
                 submitBtn.disabled = false;
                 submitBtn.textContent = originalText;
-            }
-        };
-
-        // FUNÇÃO SIMPLIFICADA para criar transações futuras
-        const createFutureTransactions = async (shortcutId, shortcutData) => {
-            try {
-                const referenceDate = getPeriodBounds(AppState.currentPeriodStartDate).start;
-                const dueDay = Math.max(1, Math.min(28, shortcutData.dueDay || 11));
-                
-                // Criar apenas 12 transações (1 ano) em vez de 60
-                const batch = writeBatch(db);
-                
-                for (let i = 0; i < 12; i++) {
-                    const transactionDate = new Date(referenceDate);
-                    transactionDate.setUTCMonth(transactionDate.getUTCMonth() + i);
-                    transactionDate.setUTCDate(dueDay);
-                    
-                    const newTxRef = doc(collection(db, `users/${AppState.userId}/transactions`));
-                    batch.set(newTxRef, {
-                        shortcutId,
-                        description: shortcutData.name,
-                        value: shortcutData.value,
-                        date: transactionDate,
-                        type: shortcutData.type,
-                        status: shortcutData.type === 'receita' ? 'a receber' : 'a pagar',
-                        isDeleted: false,
-                    });
-                }
-                
-                await batch.commit();
-                console.log('12 transações futuras criadas com sucesso!');
-            } catch (error) {
-                console.error('Erro ao criar transações futuras:', error);
-                throw error;
             }
         };
 
         const handleShortcutClick = (shortcutId) => {
             const shortcut = AppState.shortcuts.find(s => s.id === shortcutId);
             if (!shortcut) return;
-            if (shortcut.frequency === 'variavel') {
-                openTransactionModal({
-                    description: shortcut.name,
-                    value: 0,
-                    type: shortcut.type,
-                    date: new Date().toISOString().split('T')[0],
-                    shortcutId: shortcut.id
-                });
-            } else {
-                showToast("Esta é uma transação fixa, já lançada automaticamente.", "info");
-            }
+            
+            // Para atalhos fixos, criar uma transação manual baseada no atalho
+            openTransactionModal({
+                description: shortcut.name,
+                value: shortcut.value,
+                type: shortcut.type,
+                date: new Date().toISOString().split('T')[0],
+                shortcutId: shortcut.id
+            });
         };
 
         const handleDeleteShortcut = (shortcutId) => {
