@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Centro de Comando Financeiro</title>
+    
+    <!-- Tailwind CSS via CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Lucide Icons via CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* Estilos personalizados e base */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* gray-100 */
+        }
+        .tab-active {
+            border-bottom-color: #3b82f6; /* blue-500 */
+            color: #3b82f6;
+            font-weight: 600;
+        }
+        /* Animação para o Toast */
+        .toast-enter {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        .toast-enter-active {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 300ms, transform 300ms;
+        }
+        .toast-exit {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .toast-exit-active {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 300ms, transform 300ms;
+        }
+        /* Para garantir que os ícones Lucide sejam renderizados corretamente */
+        [data-lucide] {
+            width: 1em;
+            height: 1em;
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Container Principal -->
+    <div id="app" class="max-w-7xl mx-auto p-4 md:p-6">
+        
+        <!-- Cabeçalho -->
+        <header class="mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Centro de Comando Financeiro</h1>
+            <p class="text-gray-500">Sua vida financeira, organizada e sob controle.</p>
+        </header>
+
+        <!-- Navegação por Abas -->
+        <nav class="mb-6 border-b border-gray-200">
+            <ul class="flex space-x-4 md:space-x-8 -mb-px">
+                <li><button data-tab="dashboard" class="tab-item py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Dashboard</button></li>
+                <li><button data-tab="consultoria" class="tab-item py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Consultoria</button></li>
+                <li><button data-tab="relatorios" class="tab-item py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Histórico & Relatórios</button></li>
+            </ul>
+        </nav>
+
+        <!-- Conteúdo das Abas -->
+        <main id="tab-content">
+            <!-- ABA: Dashboard Principal -->
+            <div id="dashboard-content" class="space-y-8">
+                <!-- Seletor de Período -->
+                <div class="flex items-center justify-center space-x-4 bg-white p-4 rounded-lg shadow-sm">
+                    <button id="prev-period" class="p-2 rounded-full hover:bg-gray-100"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>
+                    <h2 id="period-display" class="text-xl font-semibold text-center w-80"></h2>
+                    <button id="next-period" class="p-2 rounded-full hover:bg-gray-100"><i data-lucide="chevron-right" class="w-6 h-6"></i></button>
+                </div>
+
+                <!-- Cards de Resumo (KPIs) -->
+                <div id="kpi-cards" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                    <!-- Cards serão injetados aqui -->
+                </div>
+                
+                <!-- Botão de Nova Transação Avulsa -->
+                <div class="flex justify-end">
+                    <button id="add-generic-transaction-btn" class="bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg shadow hover:bg-blue-600 flex items-center gap-2">
+                        <i data-lucide="plus-circle" class="w-5 h-5"></i> Nova Transação
+                    </button>
+                </div>
+
+                <!-- Atalhos de Lançamentos -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Atalhos de Receitas -->
+                    <div class="bg-white p-6 rounded-lg shadow-sm space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-2xl font-bold text-green-600">Receitas</h3>
+                            <button data-type="receita" class="new-shortcut-btn bg-green-500 text-white font-semibold px-3 py-1 rounded-lg hover:bg-green-600 flex items-center gap-2 text-sm">
+                                <i data-lucide="plus" class="w-4 h-4"></i> Novo Atalho
+                            </button>
+                        </div>
+                        <div id="receitas-shortcuts" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                            <!-- Cards de atalho de receita -->
+                        </div>
+                    </div>
+                    <!-- Atalhos de Despesas -->
+                    <div class="bg-white p-6 rounded-lg shadow-sm space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h3 class="text-2xl font-bold text-red-600">Despesas</h3>
+                            <button data-type="despesa" class="new-shortcut-btn bg-red-500 text-white font-semibold px-3 py-1 rounded-lg hover:bg-red-600 flex items-center gap-2 text-sm">
+                                <i data-lucide="plus" class="w-4 h-4"></i> Novo Atalho
+                            </button>
+                        </div>
+                        <div id="despesas-shortcuts" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                            <!-- Cards de atalho de despesa -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista de Transações do Período -->
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h3 class="text-2xl font-bold mb-4">Transações do Período</h3>
+                    <input type="text" id="transaction-search" placeholder="🔎 Filtrar por descrição..." class="w-full mb-4 p-2 border border-gray-300 rounded-lg">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left">
+                            <thead>
+                                <tr class="border-b">
+                                    <th class="p-2">Status</th>
+                                    <th class="p-2">Descrição</th>
+                                    <th class="p-2 text-right">Valor</th>
+                                    <th class="p-2">Data</th>
+                                    <th class="p-2 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="transaction-list">
+                                <!-- Linhas de transação serão injetadas aqui -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABA: Módulo de Consultoria -->
+            <div id="consultoria-content" class="hidden">
+                 <!-- Esta área irá alternar entre a lista de clientes e os detalhes de um cliente -->
+            </div>
+
+            <!-- ABA: Histórico & Relatórios -->
+            <div id="relatorios-content" class="hidden text-center p-10 bg-white rounded-lg shadow-sm">
+                <i data-lucide="hard-hat" class="w-16 h-16 mx-auto text-yellow-500 mb-4"></i>
+                <h2 class="text-2xl font-bold text-gray-700">Em Desenvolvimento</h2>
+                <p class="text-gray-500 mt-2">Esta seção está em construção. Volte em breve para novas funcionalidades!</p>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Genérico -->
+    <div id="modal-container" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
+        <div id="modal-content" class="bg-white rounded-lg shadow-xl w-full max-w-md m-auto transform transition-all">
+            <!-- Conteúdo do modal será injetado aqui -->
+        </div>
+    </div>
+
+    <!-- Toast de Notificação -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50"></div>
+
+    <!-- TEMPLATES HTML (para clonagem) -->
+    <template id="kpi-card-template">
+        <div class="p-4 rounded-lg shadow-sm text-center">
+            <h4 class="text-sm font-medium text-gray-500"></h4>
+            <p class="text-2xl font-bold"></p>
+        </div>
+    </template>
+    
+    <template id="transaction-row-template">
+        <tr class="border-b last:border-b-0 hover:bg-gray-50">
+            <td class="p-2">
+                <label class="flex items-center space-x-2 cursor-pointer">
+                    <input type="checkbox" class="status-checkbox form-checkbox h-5 w-5 rounded text-blue-500 border-gray-300 focus:ring-blue-500">
+                    <span class="status-text text-sm"></span>
+                </label>
+            </td>
+            <td class="p-2 flex items-center gap-2">
+                <i class="type-icon w-5 h-5"></i>
+                <span class="description-text font-medium"></span>
+            </td>
+            <td class="p-2 text-right value-text"></td>
+            <td class="p-2 text-sm text-gray-600 date-text"></td>
+            <td class="p-2">
+                <div class="flex justify-center items-center gap-2">
+                    <button class="edit-btn p-1 text-gray-500 hover:text-blue-600"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                    <button class="delete-btn p-1 text-gray-500 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                </div>
+            </td>
+        </tr>
+    </template>
+    
+    <template id="shortcut-card-template">
+        <div class="shortcut-card flex flex-col items-center justify-center p-3 border rounded-lg cursor-pointer hover:shadow-md hover:border-blue-400 transition-shadow h-full">
+            <i class="shortcut-icon w-8 h-8 mb-1"></i>
+            <span class="shortcut-name text-sm text-center font-medium"></span>
+            <span class="shortcut-total text-sm font-bold mt-1"></span>
+            <div class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                 <button class="edit-shortcut-btn p-1 text-gray-400 hover:text-blue-500" title="Editar Atalho"><i data-lucide="edit-3" class="w-3 h-3"></i></button>
+                 <button class="delete-shortcut-btn p-1 text-gray-400 hover:text-red-500 hidden" title="Excluir Permanentemente"><i data-lucide="shield-x" class="w-3 h-3"></i></button>
+            </div>
+        </div>
+    </template>
+    
+    <template id="client-list-view-template">
+        <div class="space-y-6">
+            <div class="flex justify-between items-center">
+                <h2 class="text-3xl font-bold">Clientes</h2>
+                <button id="add-client-btn" class="bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg shadow hover:bg-blue-600 flex items-center gap-2">
+                    <i data-lucide="user-plus" class="w-5 h-5"></i> Novo Cliente
+                </button>
+            </div>
+            <div id="client-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Cards de cliente serão inseridos aqui -->
+            </div>
+        </div>
+    </template>
+
+    <template id="client-card-template">
+        <div class="client-card bg-white p-6 rounded-lg shadow-sm hover:shadow-lg transition-shadow cursor-pointer">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="client-name text-xl font-bold"></h3>
+                    <p class="client-value text-gray-500 text-sm"></p>
+                </div>
+                <button class="edit-client-btn p-1 text-gray-400 hover:text-blue-500"><i data-lucide="edit" class="w-4 h-4"></i></button>
+            </div>
+        </div>
+    </template>
+    
+    <template id="client-detail-view-template">
+        <div class="space-y-8">
+            <button id="back-to-clients-btn" class="flex items-center gap-2 text-sm text-gray-600 hover:text-blue-500 font-semibold mb-4">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> Voltar para Clientes
+            </button>
+            <div class="bg-white p-6 rounded-lg shadow-sm">
+                <div class="flex justify-between items-center mb-6">
+                    <div>
+                        <h2 id="detail-client-name" class="text-3xl font-bold"></h2>
+                        <p id="detail-client-value" class="text-gray-500"></p>
+                    </div>
+                     <button id="add-abate-btn" class="bg-teal-500 text-white font-semibold px-4 py-2 rounded-lg shadow hover:bg-teal-600 flex items-center gap-2">
+                        <i data-lucide="git-commit" class="w-5 h-5"></i> Novo Abate
+                    </button>
+                </div>
+                
+                <h3 class="text-xl font-bold mb-4">Abates no Período</h3>
+                 <div class="overflow-x-auto">
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr class="border-b">
+                                <th class="p-2">Data</th>
+                                <th class="p-2">Nº Cabeças</th>
+                                <th class="p-2 text-right">Receita Total</th>
+                                <th class="p-2 text-right">Custo Total</th>
+                                <th class="p-2 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="abate-list">
+                            <!-- Linhas de abate serão inseridas aqui -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </template>
+    
+    <template id="abate-row-template">
+        <tr class="border-b last:border-b-0 hover:bg-gray-50">
+            <td class="p-2 abate-date"></td>
+            <td class="p-2 abate-heads"></td>
+            <td class="p-2 text-right abate-revenue text-green-600 font-medium"></td>
+            <td class="p-2 text-right abate-cost text-red-600 font-medium"></td>
+            <td class="p-2">
+                 <div class="flex justify-center items-center gap-2">
+                    <button class="edit-abate-btn p-1 text-gray-500 hover:text-blue-600"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                    <button class="delete-abate-btn p-1 text-gray-500 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                </div>
+            </td>
+        </tr>
+    </template>
+
+    <script type="module">
+        // Inicia o Lucide Icons
+        lucide.createIcons();
+
+        // =================================================================================
+        // ESTADO DA APLICAÇÃO E CONFIGURAÇÕES
+        // =================================================================================
+        const AppState = {
+            currentTab: 'dashboard',
+            currentPeriodStartDate: null,
+            transactions: [],
+            shortcuts: [],
+            clients: [],
+            abates: [],
+            currentClientId: null, // Para a tela de detalhes do cliente
+        };
+
+        const LOCAL_STORAGE_KEYS = {
+            transactions: 'finance_app_transactions_v2',
+            shortcuts: 'finance_app_shortcuts_v2',
+            clients: 'finance_app_clients_v2',
+            abates: 'finance_app_abates_v2',
+            currentPeriod: 'finance_app_currentPeriod_v1',
+        };
+        
+        // =================================================================================
+        // FUNÇÕES UTILITÁRIAS
+        // =================================================================================
+
+        const generateUUID = () => crypto.randomUUID();
+
+        const formatCurrency = (value) => {
+            return new Intl.NumberFormat('pt-BR', {
+                style: 'currency',
+                currency: 'BRL'
+            }).format(value || 0);
+        };
+        
+        const formatCurrencyInput = (input) => {
+            let value = input.value.replace(/\D/g, '');
+            if (value === '') {
+                input.value = '';
+                return;
+            }
+            value = (parseInt(value, 10) / 100);
+            if (isNaN(value)) {
+                input.value = "0,00";
+                return;
+            }
+            input.value = value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        };
+
+
+        const formatDate = (date) => {
+            return new Date(date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+        };
+        
+        const parseCurrency = (stringValue) => {
+            if (typeof stringValue !== 'string' || stringValue === '') return 0;
+            const number = Number(String(stringValue).replace(/\./g, '').replace(',', '.'));
+            return isNaN(number) ? 0 : number;
+        };
+        
+        const showToast = (message, type = 'success') => {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const colors = {
+                success: 'bg-green-500',
+                error: 'bg-red-500',
+                info: 'bg-blue-500'
+            };
+            toast.className = `toast-enter toast-enter-active text-white px-4 py-2 rounded-lg shadow-lg ${colors[type]}`;
+            toast.textContent = message;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('toast-enter', 'toast-enter-active');
+                toast.classList.add('toast-exit', 'toast-exit-active');
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, 3000);
+        };
+
+        // =================================================================================
+        // LÓGICA DE DADOS (LOCALSTORAGE)
+        // =================================================================================
+
+        const saveData = () => {
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEYS.transactions, JSON.stringify(AppState.transactions));
+                localStorage.setItem(LOCAL_STORAGE_KEYS.shortcuts, JSON.stringify(AppState.shortcuts));
+                localStorage.setItem(LOCAL_STORAGE_KEYS.clients, JSON.stringify(AppState.clients));
+                localStorage.setItem(LOCAL_STORAGE_KEYS.abates, JSON.stringify(AppState.abates));
+                if(AppState.currentPeriodStartDate){
+                    localStorage.setItem(LOCAL_STORAGE_KEYS.currentPeriod, AppState.currentPeriodStartDate.toISOString());
+                }
+            } catch (error) {
+                console.error("Erro ao salvar dados no localStorage:", error);
+                showToast("Erro ao salvar os dados.", "error");
+            }
+        };
+
+        const loadData = () => {
+            try {
+                AppState.transactions = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.transactions)) || [];
+                AppState.shortcuts = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.shortcuts)) || [];
+                AppState.clients = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.clients)) || [];
+                AppState.abates = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.abates)) || [];
+                const savedPeriod = localStorage.getItem(LOCAL_STORAGE_KEYS.currentPeriod);
+                if (savedPeriod) {
+                    AppState.currentPeriodStartDate = new Date(savedPeriod);
+                }
+
+            } catch (error) {
+                console.error("Erro ao carregar dados do localStorage:", error);
+                // Reseta os dados se estiverem corrompidos
+                AppState.transactions = [];
+                AppState.shortcuts = [];
+                AppState.clients = [];
+                AppState.abates = [];
+                AppState.currentPeriodStartDate = null;
+                showToast("Dados corrompidos, iniciando com dados limpos.", "error");
+            }
+        };
+
+        // =================================================================================
+        // LÓGICA DE PERÍODO
+        // =================================================================================
+
+        const initializePeriod = () => {
+            const today = new Date();
+            const currentDay = today.getDate();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+
+            // Se o dia for 10 ou menos, o período começou no mês passado
+            if (currentDay <= 10) {
+                AppState.currentPeriodStartDate = new Date(Date.UTC(currentYear, currentMonth - 1, 11));
+            } else {
+                AppState.currentPeriodStartDate = new Date(Date.UTC(currentYear, currentMonth, 11));
+            }
+        };
+        
+        const getPeriodBounds = (startDate) => {
+            const start = new Date(startDate);
+            const end = new Date(start);
+            end.setUTCMonth(end.getUTCMonth() + 1);
+            end.setUTCDate(10);
+            return { start, end };
+        };
+
+        const changePeriod = (direction) => {
+            const newStartDate = new Date(AppState.currentPeriodStartDate);
+            newStartDate.setUTCMonth(newStartDate.getUTCMonth() + direction);
+            AppState.currentPeriodStartDate = newStartDate;
+            renderAll();
+        };
+
+        // =================================================================================
+        // LÓGICA DO MODAL
+        // =================================================================================
+        const modalContainer = document.getElementById('modal-container');
+        const modalContent = document.getElementById('modal-content');
+
+        const openModal = (htmlContent, onOpen) => {
+            modalContent.innerHTML = htmlContent;
+            modalContainer.classList.remove('hidden');
+            document.body.style.overflow = 'hidden';
+            lucide.createIcons({ nodes: [modalContent] });
+            if(onOpen) onOpen();
+        };
+        
+        const closeModal = () => {
+            modalContainer.classList.add('hidden');
+            modalContent.innerHTML = '';
+            document.body.style.overflow = 'auto';
+        };
+
+        modalContainer.addEventListener('click', (e) => {
+            if (e.target === modalContainer) {
+                closeModal();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !modalContainer.classList.contains('hidden')) {
+                closeModal();
+            }
+        });
+        
+        const openConfirmationModal = (message, onConfirm) => {
+            const html = `
+                <div class="p-6">
+                    <div class="flex items-start">
+                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                            <i data-lucide="alert-triangle" class="h-6 w-6 text-red-600"></i>
+                        </div>
+                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                            <h3 class="text-lg leading-6 font-medium text-gray-900">Confirmação Necessária</h3>
+                            <div class="mt-2">
+                                <p class="text-sm text-gray-500">${message}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
+                        <button id="confirm-ok-btn" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
+                            Confirmar
+                        </button>
+                        <button id="confirm-cancel-btn" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            `;
+            openModal(html, () => {
+                document.getElementById('confirm-cancel-btn').addEventListener('click', closeModal);
+                document.getElementById('confirm-ok-btn').addEventListener('click', () => {
+                    closeModal();
+                    onConfirm();
+                });
+            });
+        };
+
+        // =================================================================================
+        // LÓGICA DE RENDERIZAÇÃO
+        // =================================================================================
+
+        const renderAll = () => {
+            saveData();
+            renderTabs();
+            switch (AppState.currentTab) {
+                case 'dashboard': renderDashboard(); break;
+                case 'consultoria': renderConsultoria(); break;
+            }
+            lucide.createIcons();
+        };
+
+        const renderTabs = () => {
+            document.querySelectorAll('.tab-item').forEach(tab => {
+                tab.classList.toggle('tab-active', tab.dataset.tab === AppState.currentTab);
+            });
+            document.querySelectorAll('#tab-content > div').forEach(content => {
+                content.classList.toggle('hidden', content.id !== `${AppState.currentTab}-content`);
+            });
+        };
+        
+        const renderDashboard = () => {
+            renderPeriodDisplay();
+            renderKPIs();
+            renderShortcuts();
+            renderTransactionList();
+        };
+        
+        const renderConsultoria = () => {
+            if (AppState.currentClientId) {
+                renderClientDetailView(AppState.currentClientId);
+            } else {
+                renderClientListView();
+            }
+        };
+
+        const renderPeriodDisplay = () => {
+            const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
+            const options = { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' };
+            const formattedStart = start.toLocaleDateString('pt-BR', options).replace(/\./g, '').replace(' de ', '/');
+            const formattedEnd = end.toLocaleDateString('pt-BR', options).replace(/\./g, '').replace(' de ', '/');
+            document.getElementById('period-display').textContent = `${formattedStart} a ${formattedEnd}`;
+        };
+
+        const renderKPIs = () => {
+            const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
+            const transactionsInPeriod = AppState.transactions.filter(t => {
+                const tDate = new Date(t.date);
+                return !t.isDeleted && tDate >= start && tDate <= end;
+            });
+
+            const recebido = transactionsInPeriod.filter(t => t.type === 'receita' && t.status === 'recebido').reduce((sum, t) => sum + t.value, 0);
+            const pago = transactionsInPeriod.filter(t => t.type === 'despesa' && t.status === 'pago').reduce((sum, t) => sum + t.value, 0);
+            const aReceber = transactionsInPeriod.filter(t => t.type === 'receita' && t.status === 'a receber').reduce((sum, t) => sum + t.value, 0);
+            const aPagar = transactionsInPeriod.filter(t => t.type === 'despesa' && t.status === 'a pagar').reduce((sum, t) => sum + t.value, 0);
+            const saldoPrevisto = (recebido + aReceber) - (pago + aPagar);
+            
+            const kpis = [
+                { title: 'Recebido', value: recebido, color: 'text-green-600', bg: 'bg-green-50' },
+                { title: 'Pago', value: pago, color: 'text-red-600', bg: 'bg-red-50' },
+                { title: 'Saldo Atual', value: recebido - pago, color: 'text-blue-600', bg: 'bg-blue-50' },
+                { title: 'A Receber', value: aReceber, color: 'text-yellow-600', bg: 'bg-yellow-50' },
+                { title: 'A Pagar', value: aPagar, color: 'text-orange-600', bg: 'bg-orange-50' },
+                { title: 'Saldo Previsto', value: saldoPrevisto, color: saldoPrevisto < 0 ? 'text-red-600' : 'text-indigo-600', bg: saldoPrevisto < 0 ? 'bg-red-50' : 'bg-indigo-50' },
+            ];
+
+            const container = document.getElementById('kpi-cards');
+            container.innerHTML = '';
+            const template = document.getElementById('kpi-card-template');
+            
+            kpis.forEach(kpi => {
+                const card = template.content.cloneNode(true).firstElementChild;
+                card.querySelector('h4').textContent = kpi.title;
+                card.querySelector('p').textContent = formatCurrency(kpi.value);
+                card.querySelector('p').className = `text-2xl font-bold ${kpi.color}`;
+                card.className = `p-4 rounded-lg shadow-sm text-center ${kpi.bg}`;
+                container.appendChild(card);
+            });
+        };
+
+        const renderShortcuts = () => {
+            const receitasContainer = document.getElementById('receitas-shortcuts');
+            const despesasContainer = document.getElementById('despesas-shortcuts');
+            receitasContainer.innerHTML = '';
+            despesasContainer.innerHTML = '';
+            
+            const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
+            const template = document.getElementById('shortcut-card-template');
+
+            AppState.shortcuts.forEach(shortcut => {
+                const card = template.content.cloneNode(true).firstElementChild;
+                card.dataset.id = shortcut.id;
+                card.querySelector('.shortcut-icon').setAttribute('data-lucide', shortcut.icon || 'dollar-sign');
+                card.querySelector('.shortcut-name').textContent = shortcut.name;
+                const totalEl = card.querySelector('.shortcut-total');
+
+                if (shortcut.frequency === 'variavel') {
+                    const monthlyTxs = AppState.transactions.filter(t => 
+                        !t.isDeleted && 
+                        t.shortcutId === shortcut.id &&
+                        new Date(t.date) >= start &&
+                        new Date(t.date) <= end
+                    );
+                    const totalValue = monthlyTxs.reduce((sum, t) => sum + t.value, 0);
+                    if (totalValue > 0) {
+                        totalEl.textContent = formatCurrency(totalValue);
+                        totalEl.className = 'shortcut-total text-sm font-bold mt-1 ' + (shortcut.type === 'receita' ? 'text-green-600' : 'text-red-600');
+                    } else {
+                        totalEl.textContent = '';
+                    }
+                } else {
+                     totalEl.textContent = '';
+                }
+
+                const cardTextColor = shortcut.type === 'receita' ? 'text-green-700' : 'text-red-700';
+                const cardBorderColor = shortcut.type === 'receita' ? 'border-green-200' : 'border-red-200';
+                card.classList.add(cardTextColor, cardBorderColor, 'group', 'relative');
+                if (shortcut.frequency === 'fixo') {
+                    const pinIcon = document.createElement('i');
+                    pinIcon.setAttribute('data-lucide', 'pin');
+                    pinIcon.className = 'w-3 h-3 absolute top-1 left-1 text-gray-400';
+                    card.appendChild(pinIcon);
+                    const deleteBtn = card.querySelector('.delete-shortcut-btn');
+                    if (deleteBtn) {
+                        deleteBtn.classList.remove('hidden');
+                    }
+                }
+                if (shortcut.type === 'receita') receitasContainer.appendChild(card);
+                else despesasContainer.appendChild(card);
+            });
+            lucide.createIcons();
+        };
+
+        const renderTransactionList = (filterText = '') => {
+            const container = document.getElementById('transaction-list');
+            container.innerHTML = '';
+            const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
+            const filteredTransactions = AppState.transactions
+                .filter(t => {
+                    if (t.isDeleted) return false;
+                    const tDate = new Date(t.date);
+                    return tDate >= start && tDate <= end &&
+                           t.description.toLowerCase().includes(filterText.toLowerCase());
+                })
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+            if (filteredTransactions.length === 0) {
+                container.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-8">Nenhuma transação neste período.</td></tr>`;
+                return;
+            }
+            const template = document.getElementById('transaction-row-template');
+            filteredTransactions.forEach(t => {
+                const row = template.content.cloneNode(true).firstElementChild;
+                row.dataset.id = t.id;
+                const checkbox = row.querySelector('.status-checkbox');
+                const statusText = row.querySelector('.status-text');
+                const valueText = row.querySelector('.value-text');
+                checkbox.checked = t.status === 'pago' || t.status === 'recebido';
+                checkbox.dataset.transactionId = t.id;
+                if (t.type === 'receita') {
+                    statusText.textContent = t.status === 'recebido' ? 'Recebido' : 'A Receber';
+                    valueText.classList.add('text-green-600');
+                    row.querySelector('.type-icon').setAttribute('data-lucide', 'arrow-up-circle');
+                    row.querySelector('.type-icon').classList.add('text-green-500');
+                } else {
+                    statusText.textContent = t.status === 'pago' ? 'Pago' : 'A Pagar';
+                    valueText.classList.add('text-red-600');
+                    row.querySelector('.type-icon').setAttribute('data-lucide', 'arrow-down-circle');
+                    row.querySelector('.type-icon').classList.add('text-red-500');
+                }
+                row.querySelector('.description-text').textContent = t.description;
+                valueText.textContent = formatCurrency(t.value);
+                row.querySelector('.date-text').textContent = formatDate(t.date);
+                row.querySelector('.edit-btn').dataset.id = t.id;
+                row.querySelector('.delete-btn').dataset.id = t.id;
+                // Cannot edit installments individually, only the group.
+                if (t.abateId || t.isInstallment) {
+                   const editBtn = row.querySelector('.edit-btn');
+                   editBtn.disabled = true;
+                   editBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                }
+                container.appendChild(row);
+            });
+            lucide.createIcons();
+        };
+        
+        const renderClientListView = () => {
+            const container = document.getElementById('consultoria-content');
+            container.innerHTML = document.getElementById('client-list-view-template').innerHTML;
+            const listContainer = document.getElementById('client-list-container');
+            listContainer.innerHTML = '';
+            if (AppState.clients.length === 0) {
+                listContainer.innerHTML = `<p class="text-gray-500 col-span-full text-center py-8">Nenhum cliente cadastrado. Clique em "Novo Cliente" para começar.</p>`;
+                return;
+            }
+            const cardTemplate = document.getElementById('client-card-template');
+            AppState.clients.forEach(client => {
+                const card = cardTemplate.content.cloneNode(true).firstElementChild;
+                card.dataset.id = client.id;
+                card.querySelector('.client-name').textContent = client.name;
+                card.querySelector('.client-value').textContent = `${formatCurrency(client.valuePerHead)} por cabeça`;
+                card.querySelector('.edit-client-btn').dataset.id = client.id;
+                listContainer.appendChild(card);
+            });
+            lucide.createIcons();
+        };
+
+        const renderClientDetailView = (clientId) => {
+            const client = AppState.clients.find(c => c.id === clientId);
+            if (!client) {
+                AppState.currentClientId = null;
+                renderConsultoria();
+                return;
+            }
+            const container = document.getElementById('consultoria-content');
+            container.innerHTML = document.getElementById('client-detail-view-template').innerHTML;
+            document.getElementById('detail-client-name').textContent = client.name;
+            document.getElementById('detail-client-value').textContent = `${formatCurrency(client.valuePerHead)} por cabeça`;
+            document.getElementById('add-abate-btn').dataset.clientId = client.id;
+            renderAbateList(clientId);
+            lucide.createIcons();
+        };
+        
+        const renderAbateList = (clientId) => {
+            const listContainer = document.getElementById('abate-list');
+            listContainer.innerHTML = '';
+            const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
+            const abatesInPeriod = AppState.abates.filter(a => {
+                if (a.isDeleted) return false;
+                const aDate = new Date(a.date);
+                return a.clientId === clientId && aDate >= start && aDate <= end;
+            });
+            if (abatesInPeriod.length === 0) {
+                listContainer.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-8">Nenhum abate registrado para este cliente no período.</td></tr>`;
+                return;
+            }
+            const rowTemplate = document.getElementById('abate-row-template');
+            abatesInPeriod.forEach(abate => {
+                const row = rowTemplate.content.cloneNode(true).firstElementChild;
+                row.dataset.id = abate.id;
+                const client = AppState.clients.find(c => c.id === abate.clientId);
+                const revenue = (abate.heads * (client?.valuePerHead || 0)) + abate.revenueDisplacement;
+                const cost = abate.costDisplacement + abate.costAssistant;
+                row.querySelector('.abate-date').textContent = formatDate(abate.date);
+                row.querySelector('.abate-heads').textContent = abate.heads;
+                row.querySelector('.abate-revenue').textContent = formatCurrency(revenue);
+                row.querySelector('.abate-cost').textContent = formatCurrency(cost);
+                row.querySelector('.edit-abate-btn').dataset.id = abate.id;
+                row.querySelector('.delete-abate-btn').dataset.id = abate.id;
+                listContainer.appendChild(row);
+            });
+            lucide.createIcons();
+        };
+
+        // =================================================================================
+        // LÓGICA DOS MODAIS E MANIPULAÇÃO DE DADOS
+        // =================================================================================
+
+        // -- Atalhos --
+        const openShortcutModal = (shortcutType, shortcutId = null) => {
+            const isEditing = !!shortcutId;
+            const shortcut = isEditing ? AppState.shortcuts.find(s => s.id === shortcutId) : null;
+            const title = isEditing ? 'Editar Atalho' : `Novo Atalho de ${shortcutType === 'receita' ? 'Receita' : 'Despesa'}`;
+            const availableIcons = ["salad", "popcorn", "shopping-cart", "bus", "car", "home", "briefcase", "graduation-cap", "gift", "heart-pulse", "piggy-bank", "landmark"];
+            const html = `
+                <form id="shortcut-form" class="p-6 space-y-4">
+                    <h3 class="text-xl font-bold mb-4">${title}</h3>
+                    <input type="hidden" name="id" value="${shortcut?.id || ''}">
+                    <input type="hidden" name="type" value="${shortcut?.type || shortcutType}">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Nome</label>
+                        <input type="text" name="name" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${shortcut?.name || ''}" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Valor Padrão</label>
+                        <input type="text" name="value" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(shortcut?.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}" required>
+                    </div>
+                    <div>
+                        <span class="block text-sm font-medium text-gray-700">Frequência</span>
+                        <div class="mt-2 flex gap-4">
+                            <label><input type="radio" name="frequency" value="variavel" ${(!shortcut || shortcut.frequency === 'variavel') ? 'checked' : ''}> Lançamento Variável</label>
+                            <label><input type="radio" name="frequency" value="fixo" ${(shortcut?.frequency === 'fixo') ? 'checked' : ''}> Lançamento Fixo</label>
+                        </div>
+                    </div>
+                     <div>
+                        <span class="block text-sm font-medium text-gray-700">Ícone</span>
+                        <div class="mt-2 grid grid-cols-6 gap-2">
+                           ${availableIcons.map(icon => `
+                               <label class="p-2 border rounded-md flex justify-center items-center cursor-pointer has-[:checked]:bg-blue-100 has-[:checked]:border-blue-500">
+                                   <input type="radio" name="icon" value="${icon}" class="sr-only" ${shortcut?.icon === icon ? 'checked' : ''}>
+                                   <i data-lucide="${icon}"></i>
+                               </label>
+                           `).join('')}
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-4 pt-4">
+                        <button type="button" class="cancel-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">Cancelar</button>
+                        <button type="submit" class="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600">Salvar</button>
+                    </div>
+                </form>`;
+            openModal(html, () => {
+                 document.querySelectorAll('.currency-input').forEach(input => {
+                    input.addEventListener('input', () => formatCurrencyInput(input));
+                });
+                 document.getElementById('shortcut-form').addEventListener('submit', handleSaveShortcut);
+                 document.querySelector('.cancel-btn').addEventListener('click', closeModal);
+            });
+        };
+
+        const handleSaveShortcut = (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const id = formData.get('id');
+            const isEditing = !!id;
+            const oldShortcut = isEditing ? { ...AppState.shortcuts.find(s => s.id === id) } : null;
+            const newShortcutData = {
+                id: id || generateUUID(),
+                name: formData.get('name'),
+                value: parseCurrency(formData.get('value')),
+                type: formData.get('type'),
+                frequency: formData.get('frequency'),
+                icon: formData.get('icon') || 'dollar-sign',
+            };
+            const referenceDate = getPeriodBounds(AppState.currentPeriodStartDate).start;
+
+            const performSave = () => {
+                if (isEditing) {
+                    const index = AppState.shortcuts.findIndex(s => s.id === id);
+                    AppState.shortcuts[index] = newShortcutData;
+                } else {
+                    AppState.shortcuts.push(newShortcutData);
+                }
+                if (newShortcutData.frequency === 'fixo') {
+                    generateFutureTransactionsForShortcut(newShortcutData, AppState.currentPeriodStartDate);
+                }
+                closeModal();
+                showToast(`Atalho ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
+                renderAll();
+            };
+
+            if (isEditing) {
+                const isConvertingToVariable = oldShortcut.frequency === 'fixo' && newShortcutData.frequency === 'variavel';
+                const isChangingFixedValue = oldShortcut.frequency === 'fixo' && newShortcutData.frequency === 'fixo' && oldShortcut.value !== newShortcutData.value;
+
+                if (isConvertingToVariable) {
+                    const msg = "Ao converter este atalho para 'Variável', todas as transações futuras pendentes (a partir deste período) serão permanentemente excluídas. Deseja continuar?";
+                    openConfirmationModal(msg, () => {
+                        deleteFutureTransactionsForShortcut(id, referenceDate);
+                        performSave();
+                    });
+                    return;
+                }
+                if (isChangingFixedValue) {
+                    const msg = "Ao alterar o valor de um atalho fixo, as transações futuras (a partir deste período) serão atualizadas. Transações passadas ou já pagas/recebidas permanecerão inalteradas. Deseja continuar?";
+                    openConfirmationModal(msg, () => {
+                        deleteFutureTransactionsForShortcut(id, referenceDate);
+                        performSave();
+                    });
+                    return;
+                }
+            }
+            performSave();
+        };
+        
+        const deleteFutureTransactionsForShortcut = (shortcutId, referenceDate) => {
+             AppState.transactions = AppState.transactions.filter(t => {
+                const tDate = new Date(t.date);
+                return t.shortcutId !== shortcutId || tDate < referenceDate || (tDate >= referenceDate && (t.status === 'pago' || t.status === 'recebido'));
+            });
+        };
+
+        const generateFutureTransactionsForShortcut = (shortcut, referencePeriodStartDate) => {
+             const periodsToGenerate = 60; 
+             for (let i = 0; i < periodsToGenerate; i++) {
+                 const periodStart = new Date(referencePeriodStartDate);
+                 periodStart.setUTCMonth(periodStart.getUTCMonth() + i);
+                 const transactionDate = new Date(periodStart);
+                 const exists = AppState.transactions.some(t =>
+                    t.shortcutId === shortcut.id && new Date(t.date).getTime() === transactionDate.getTime()
+                 );
+                 if (!exists) {
+                    AppState.transactions.push({
+                        id: generateUUID(),
+                        shortcutId: shortcut.id,
+                        description: shortcut.name,
+                        value: shortcut.value,
+                        date: transactionDate.toISOString(),
+                        type: shortcut.type,
+                        status: shortcut.type === 'receita' ? 'a receber' : 'a pagar',
+                        isDeleted: false,
+                    });
+                 }
+             }
+        };
+
+        const handleShortcutClick = (shortcutId) => {
+            const shortcut = AppState.shortcuts.find(s => s.id === shortcutId);
+            if (!shortcut) return;
+            if (shortcut.frequency === 'variavel') {
+                openTransactionModal({
+                    description: shortcut.name,
+                    value: 0, // Start with 0 for variable transactions
+                    type: shortcut.type,
+                    date: new Date().toISOString().split('T')[0],
+                    shortcutId: shortcut.id
+                });
+            } else {
+                showToast("Esta é uma transação fixa, já lançada automaticamente.", "info");
+            }
+        };
+
+        const handleDeleteShortcutPermanently = (shortcutId) => {
+            const msg = "Tem certeza que deseja excluir permanentemente este atalho e TODAS as suas transações futuras (a partir deste período)? Transações passadas não serão afetadas. Esta ação é irreversível.";
+            openConfirmationModal(msg, () => {
+                const referenceDate = getPeriodBounds(AppState.currentPeriodStartDate).start;
+
+                AppState.transactions = AppState.transactions.filter(t => {
+                    const tDate = new Date(t.date);
+                    return t.shortcutId !== shortcutId || tDate < referenceDate;
+                });
+                
+                AppState.shortcuts = AppState.shortcuts.filter(s => s.id !== shortcutId);
+
+                showToast('Atalho e transações futuras excluídos.', 'success');
+                renderAll();
+            });
+        };
+
+        // -- Transações --
+        const openTransactionModal = (txData = {}) => {
+            const isEditing = !!txData.id;
+            const title = isEditing ? 'Editar Transação' : 'Nova Transação';
+            const today = new Date().toISOString().split('T')[0];
+            const html = `
+                 <form id="transaction-form" class="p-6 space-y-4">
+                    <h3 class="text-xl font-bold mb-4">${title}</h3>
+                    <input type="hidden" name="id" value="${txData.id || ''}">
+                    <input type="hidden" name="shortcutId" value="${txData.shortcutId || ''}">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Descrição</label>
+                        <input type="text" name="description" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${txData.description || ''}" required>
+                    </div>
+                    <div>
+                        <label id="value-label" class="block text-sm font-medium text-gray-700">Valor</label>
+                        <input type="text" name="value" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(txData.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}" required>
+                    </div>
+                    <div>
+                        <label id="date-label" class="block text-sm font-medium text-gray-700">Data</label>
+                        <input type="date" name="date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(txData.date || today).split('T')[0]}" required>
+                    </div>
+                    <div>
+                         <span class="block text-sm font-medium text-gray-700">Tipo</span>
+                         <div id="type-selector" class="mt-2 flex gap-4">
+                            <label><input type="radio" name="type" value="receita" ${txData.type === 'receita' ? 'checked' : ''} required> Receita</label>
+                            <label><input type="radio" name="type" value="despesa" ${!txData.type || txData.type === 'despesa' ? 'checked' : ''} required> Despesa</label>
+                         </div>
+                    </div>
+
+                    <!-- Campos de Parcelamento -->
+                    <div id="installment-options-container" class="hidden space-y-4">
+                        <div>
+                            <label class="flex items-center">
+                                <input type="checkbox" id="is-installment-checkbox" name="isInstallment" class="form-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded">
+                                <span class="ml-2 text-sm text-gray-700">É compra parcelada?</span>
+                            </label>
+                        </div>
+                        <div id="installment-fields" class="hidden space-y-4">
+                             <div>
+                                <label class="block text-sm font-medium text-gray-700">Número de Parcelas</label>
+                                <input type="number" name="installments" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="2" min="2">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                         <span class="block text-sm font-medium text-gray-700">Status</span>
+                         <div class="mt-2 flex gap-4">
+                            <label><input type="radio" name="status" value="pago" ${(txData.status === 'pago' || txData.status === 'recebido') ? 'checked' : ''} required> Lançado</label>
+                            <label><input type="radio" name="status" value="a_pagar" ${(txData.status === 'a pagar' || txData.status === 'a receber') ? 'checked' : ''} required> Pendente</label>
+                         </div>
+                    </div>
+                    <div class="flex justify-end gap-4 pt-4">
+                        <button type="button" class="cancel-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">Cancelar</button>
+                        <button type="submit" class="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600">Salvar</button>
+                    </div>
+                 </form>`;
+            openModal(html, () => {
+                const form = document.getElementById('transaction-form');
+                const typeSelector = form.querySelector('#type-selector');
+                const installmentContainer = form.querySelector('#installment-options-container');
+                const isInstallmentCheckbox = form.querySelector('#is-installment-checkbox');
+                const installmentFields = form.querySelector('#installment-fields');
+                const valueLabel = form.querySelector('#value-label');
+                const dateLabel = form.querySelector('#date-label');
+
+                document.querySelectorAll('.currency-input').forEach(input => {
+                    input.addEventListener('input', () => formatCurrencyInput(input));
+                });
+
+                const toggleInstallmentView = () => {
+                    const type = form.querySelector('input[name="type"]:checked').value;
+                    if (type === 'despesa') {
+                        installmentContainer.classList.remove('hidden');
+                    } else {
+                        installmentContainer.classList.add('hidden');
+                        isInstallmentCheckbox.checked = false; 
+                    }
+
+                    if (isInstallmentCheckbox.checked && type === 'despesa') {
+                        installmentFields.classList.remove('hidden');
+                        valueLabel.textContent = 'Valor Total da Compra';
+                        dateLabel.textContent = 'Data da Primeira Parcela';
+                    } else {
+                        installmentFields.classList.add('hidden');
+                        valueLabel.textContent = 'Valor';
+                        dateLabel.textContent = 'Data';
+                    }
+                };
+
+                typeSelector.addEventListener('change', toggleInstallmentView);
+                isInstallmentCheckbox.addEventListener('change', toggleInstallmentView);
+                
+                toggleInstallmentView(); 
+                
+                form.addEventListener('submit', handleSaveTransaction);
+                document.querySelector('.cancel-btn').addEventListener('click', closeModal);
+            });
+        };
+        
+        const handleSaveTransaction = (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const isInstallment = formData.get('isInstallment') === 'on';
+            
+            if (isInstallment) {
+                const description = formData.get('description');
+                const totalValue = parseCurrency(formData.get('value'));
+                const numInstallments = parseInt(formData.get('installments'));
+                const firstDueDate = new Date(formData.get('date') + 'T00:00:00');
+
+                if (numInstallments <= 1) {
+                    showToast('O número de parcelas deve ser 2 ou maior.', 'error');
+                    return;
+                }
+
+                const installmentValue = totalValue / numInstallments;
+                const installmentGroupId = generateUUID();
+
+                for (let i = 0; i < numInstallments; i++) {
+                    const dueDate = new Date(firstDueDate);
+                    dueDate.setUTCMonth(firstDueDate.getUTCMonth() + i);
+
+                    const tx = {
+                        id: generateUUID(),
+                        description: `${description} (${i + 1}/${numInstallments})`,
+                        value: installmentValue,
+                        date: dueDate.toISOString(),
+                        type: 'despesa',
+                        status: 'a pagar',
+                        isInstallment: true,
+                        installmentGroupId: installmentGroupId,
+                        isDeleted: false,
+                    };
+                    AppState.transactions.push(tx);
+                }
+                showToast(`${numInstallments} parcelas criadas com sucesso!`, 'success');
+            } else {
+                const id = formData.get('id');
+                const isEditing = !!id;
+                const type = formData.get('type');
+                let status = formData.get('status');
+                if (status === 'a_pagar') status = type === 'receita' ? 'a receber' : 'a pagar';
+                if (status === 'pago') status = type === 'receita' ? 'recebido' : 'pago';
+                const tx = {
+                    id: id || generateUUID(),
+                    description: formData.get('description'),
+                    value: parseCurrency(formData.get('value')),
+                    date: new Date(formData.get('date') + 'T00:00:00').toISOString(),
+                    type: type,
+                    status: status,
+                    shortcutId: formData.get('shortcutId') || (isEditing ? AppState.transactions.find(t=>t.id === id).shortcutId : null),
+                    abateId: isEditing ? AppState.transactions.find(t=>t.id === id).abateId : null,
+                    isDeleted: false,
+                };
+                if (isEditing) {
+                    const index = AppState.transactions.findIndex(t => t.id === id);
+                    AppState.transactions[index] = tx;
+                } else {
+                    AppState.transactions.push(tx);
+                }
+                showToast(`Transação ${isEditing ? 'atualizada' : 'salva'} com sucesso!`);
+            }
+
+            closeModal();
+            renderAll();
+        };
+
+        const handleDeleteTransaction = (id) => {
+            const tx = AppState.transactions.find(t => t.id === id);
+            if (!tx) return;
+            if (tx.shortcutId) {
+                const msg = "Esta transação faz parte de um lançamento fixo. Excluí-la irá removê-la permanentemente, mas outras transações fixas não serão afetadas. Deseja continuar?";
+                openConfirmationModal(msg, () => {
+                    tx.isDeleted = true;
+                    showToast('Transação excluída com sucesso!', 'success');
+                    renderAll();
+                });
+            } else if (tx.isInstallment) {
+                const msg = "Esta transação é uma parcela. Deseja excluir apenas esta parcela ou todas as parcelas futuras desta compra?";
+                 openConfirmationModal(msg, () => { // Simplified to delete only one for now
+                    tx.isDeleted = true;
+                    showToast('Parcela excluída com sucesso!', 'success');
+                    renderAll();
+                });
+            } else {
+                const msg = "Tem certeza que deseja excluir esta transação? Esta ação é irreversível.";
+                openConfirmationModal(msg, () => {
+                    AppState.transactions = AppState.transactions.filter(t => t.id !== id);
+                    showToast('Transação excluída com sucesso!', 'success');
+                    renderAll();
+                });
+            }
+        };
+        
+        const handleToggleTransactionStatus = (id) => {
+            const tx = AppState.transactions.find(t => t.id === id);
+            if (!tx) return;
+            if (tx.type === 'receita') {
+                tx.status = tx.status === 'recebido' ? 'a receber' : 'recebido';
+            } else {
+                tx.status = tx.status === 'pago' ? 'a pagar' : 'pago';
+            }
+            showToast('Status da transação atualizado!', 'success');
+            renderAll();
+        };
+
+        // -- Clientes (Consultoria) --
+        const openClientModal = (clientId = null) => {
+            const isEditing = !!clientId;
+            const client = isEditing ? AppState.clients.find(c => c.id === clientId) : null;
+            const title = isEditing ? 'Editar Cliente' : 'Novo Cliente';
+            const html = `
+                <form id="client-form" class="p-6 space-y-4">
+                    <h3 class="text-xl font-bold mb-4">${title}</h3>
+                    <input type="hidden" name="id" value="${client?.id || ''}">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Nome do Cliente</label>
+                        <input type="text" name="name" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${client?.name || ''}" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Valor por Cabeça (R$)</label>
+                        <input type="text" name="valuePerHead" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(client?.valuePerHead || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}" required>
+                    </div>
+                    <div class="flex justify-end gap-4 pt-4">
+                        <button type="button" class="cancel-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">Cancelar</button>
+                        <button type="submit" class="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600">Salvar</button>
+                    </div>
+                </form>`;
+            openModal(html, () => {
+                document.querySelectorAll('.currency-input').forEach(input => {
+                    input.addEventListener('input', () => formatCurrencyInput(input));
+                });
+                document.getElementById('client-form').addEventListener('submit', handleSaveClient);
+                document.querySelector('.cancel-btn').addEventListener('click', closeModal);
+            });
+        };
+        
+        const handleSaveClient = (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const id = formData.get('id');
+            const isEditing = !!id;
+            const clientData = {
+                id: id || generateUUID(),
+                name: formData.get('name'),
+                valuePerHead: parseCurrency(formData.get('valuePerHead')),
+            };
+            if (isEditing) {
+                const index = AppState.clients.findIndex(c => c.id === id);
+                AppState.clients[index] = clientData;
+            } else {
+                AppState.clients.push(clientData);
+            }
+            closeModal();
+            showToast(`Cliente ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
+            renderAll();
+        };
+
+        // -- Abates (Consultoria) --
+        const openAbateModal = (clientId, abateId = null) => {
+            const isEditing = !!abateId;
+            const abate = isEditing ? AppState.abates.find(a => a.id === abateId) : null;
+            const client = AppState.clients.find(c => c.id === clientId);
+            const title = isEditing ? 'Editar Abate' : 'Novo Abate';
+            const today = new Date().toISOString().split('T')[0];
+            const html = `
+                <form id="abate-form" class="p-6 space-y-4">
+                    <h3 class="text-xl font-bold mb-4">${title} para ${client.name}</h3>
+                    <input type="hidden" name="id" value="${abate?.id || ''}">
+                    <input type="hidden" name="clientId" value="${clientId}">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Data do Abate</label>
+                        <input type="date" name="date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(abate?.date || today).split('T')[0]}" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Nº de Cabeças</label>
+                        <input type="number" name="heads" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${abate?.heads || 1}" min="1" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Receita de Deslocamento (Opcional)</label>
+                        <input type="text" name="revenueDisplacement" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(abate?.revenueDisplacement || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}">
+                    </div>
+                     <div>
+                        <label class="block text-sm font-medium text-gray-700">Custo com Deslocamento (Opcional)</label>
+                        <input type="text" name="costDisplacement" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(abate?.costDisplacement || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}">
+                    </div>
+                     <div>
+                        <label class="block text-sm font-medium text-gray-700">Custo com Diarista (Opcional)</label>
+                        <input type="text" name="costAssistant" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(abate?.costAssistant || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}">
+                    </div>
+                    <div class="flex justify-end gap-4 pt-4">
+                        <button type="button" class="cancel-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">Cancelar</button>
+                        <button type="submit" class="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600">Salvar</button>
+                    </div>
+                </form>`;
+            openModal(html, () => {
+                document.querySelectorAll('.currency-input').forEach(input => {
+                    input.addEventListener('input', () => formatCurrencyInput(input));
+                });
+                document.getElementById('abate-form').addEventListener('submit', handleSaveAbate);
+                document.querySelector('.cancel-btn').addEventListener('click', closeModal);
+            });
+        };
+
+        const handleSaveAbate = (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const id = formData.get('id');
+            const isEditing = !!id;
+            const abateData = {
+                id: id || generateUUID(),
+                clientId: formData.get('clientId'),
+                date: new Date(formData.get('date') + 'T00:00:00').toISOString(),
+                heads: parseInt(formData.get('heads')),
+                revenueDisplacement: parseCurrency(formData.get('revenueDisplacement')),
+                costDisplacement: parseCurrency(formData.get('costDisplacement')),
+                costAssistant: parseCurrency(formData.get('costAssistant')),
+            };
+            if (isEditing) {
+                AppState.transactions = AppState.transactions.filter(t => t.abateId !== id);
+                const index = AppState.abates.findIndex(a => a.id === id);
+                AppState.abates[index] = abateData;
+            } else {
+                AppState.abates.push(abateData);
+            }
+            createTransactionsForAbate(abateData);
+            closeModal();
+            showToast(`Abate ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
+            renderAll();
+        };
+
+        const createTransactionsForAbate = (abate) => {
+            const client = AppState.clients.find(c => c.id === abate.clientId);
+            if (!client) return;
+            const mainRevenue = (abate.heads * client.valuePerHead) + abate.revenueDisplacement;
+            AppState.transactions.push({ id: generateUUID(), abateId: abate.id, description: `Abate - ${client.name}`, value: mainRevenue, date: abate.date, type: 'receita', status: 'a receber' });
+            if (abate.costDisplacement > 0) AppState.transactions.push({ id: generateUUID(), abateId: abate.id, description: `Custo Deslocamento - ${client.name}`, value: abate.costDisplacement, date: abate.date, type: 'despesa', status: 'a pagar' });
+            if (abate.costAssistant > 0) AppState.transactions.push({ id: generateUUID(), abateId: abate.id, description: `Custo Diarista - ${client.name}`, value: abate.costAssistant, date: abate.date, type: 'despesa', status: 'a pagar' });
+        };
+
+        const handleDeleteAbate = (id) => {
+            const msg = "Excluir este abate também removerá as transações financeiras associadas. Deseja continuar?";
+            openConfirmationModal(msg, () => {
+                AppState.abates = AppState.abates.filter(a => a.id !== id);
+                AppState.transactions = AppState.transactions.filter(t => t.abateId !== id);
+                showToast('Abate e transações vinculadas foram excluídos.', 'success');
+                renderAll();
+            });
+        };
+
+        // =================================================================================
+        // EVENT LISTENERS GLOBAIS
+        // =================================================================================
+
+        document.querySelector('nav').addEventListener('click', (e) => {
+            if (e.target.matches('.tab-item')) {
+                AppState.currentTab = e.target.dataset.tab;
+                AppState.currentClientId = null; 
+                renderAll();
+            }
+        });
+        
+        document.getElementById('prev-period').addEventListener('click', () => changePeriod(-1));
+        document.getElementById('next-period').addEventListener('click', () => changePeriod(1));
+        
+        document.getElementById('transaction-search').addEventListener('input', (e) => {
+            renderTransactionList(e.target.value);
+        });
+        
+        document.getElementById('app').addEventListener('click', (e) => {
+            const target = e.target;
+            const actionTarget = target.closest('[data-id], [data-type], [data-client-id], button, .shortcut-card, .client-card');
+            if (!actionTarget) return;
+            
+            // Atalhos
+            if (target.closest('.new-shortcut-btn')) openShortcutModal(actionTarget.dataset.type);
+            if (target.closest('.shortcut-card .edit-shortcut-btn')) {
+                e.stopPropagation();
+                const shortcutId = target.closest('.shortcut-card').dataset.id;
+                const shortcut = AppState.shortcuts.find(s=>s.id === shortcutId);
+                openShortcutModal(shortcut.type, shortcutId);
+            }
+            if (target.closest('.shortcut-card .delete-shortcut-btn')) {
+                e.stopPropagation();
+                const shortcutId = target.closest('.shortcut-card').dataset.id;
+                handleDeleteShortcutPermanently(shortcutId);
+            }
+            if (target.closest('.shortcut-card') && !target.closest('.edit-shortcut-btn') && !target.closest('.delete-shortcut-btn')) {
+                handleShortcutClick(target.closest('.shortcut-card').dataset.id);
+            }
+            
+            // Transações
+            if(target.closest('#add-generic-transaction-btn')) openTransactionModal();
+            if (target.matches('.status-checkbox')) handleToggleTransactionStatus(target.dataset.transactionId);
+            if (target.closest('.edit-btn')) {
+                const txId = target.closest('[data-id]').dataset.id;
+                const tx = AppState.transactions.find(t => t.id === txId);
+                if (tx) openTransactionModal(tx);
+            }
+            if (target.closest('.delete-btn')) handleDeleteTransaction(target.closest('[data-id]').dataset.id);
+
+            // Consultoria
+            if (target.closest('#add-client-btn')) openClientModal();
+            if (target.closest('.client-card .edit-client-btn')) {
+                 e.stopPropagation();
+                 openClientModal(target.closest('.client-card').dataset.id);
+            }
+            if (target.closest('.client-card') && !target.closest('.edit-client-btn')) {
+                AppState.currentClientId = target.closest('.client-card').dataset.id;
+                renderConsultoria();
+            }
+            if (target.closest('#back-to-clients-btn')) {
+                AppState.currentClientId = null;
+                renderConsultoria();
+            }
+            if (target.closest('#add-abate-btn')) openAbateModal(target.closest('#add-abate-btn').dataset.clientId);
+            if (target.closest('.edit-abate-btn')) {
+                const abateId = target.closest('[data-id]').dataset.id;
+                const abate = AppState.abates.find(a => a.id === abateId);
+                if(abate) openAbateModal(abate.clientId, abateId);
+            }
+            if (target.closest('.delete-abate-btn')) handleDeleteAbate(target.closest('[data-id]').dataset.id);
+        });
+
+        // =================================================================================
+        // INICIALIZAÇÃO DA APLICAÇÃO
+        // =================================================================================
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadData();
+            if (!AppState.currentPeriodStartDate) {
+                initializePeriod();
+            }
+            renderAll();
+        });
+
+    </script>
+</body>
+</html>
