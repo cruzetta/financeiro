@@ -56,9 +56,9 @@
 <body class="text-gray-800">
     <!-- Tela de Carregamento -->
     <div id="loading-container" class="flex items-center justify-center min-h-screen bg-gray-100">
-        <div class="text-center">
+        <div class="text-center p-4">
             <i data-lucide="loader-2" class="w-16 h-16 mx-auto text-blue-500 animate-spin"></i>
-            <p class="mt-4 text-lg text-gray-600">Carregando e autenticando...</p>
+            <p class="mt-4 text-lg text-gray-600">Conectando ao seu banco de dados...</p>
         </div>
     </div>
     
@@ -314,7 +314,6 @@
         import { 
             getAuth, 
             onAuthStateChanged,
-            signInWithCustomToken,
             signInAnonymously,
             signOut 
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
@@ -333,16 +332,21 @@
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // =================================================================================
-        // INICIALIZAÇÃO E CONFIGURAÇÃO DO FIREBASE
+        // CONFIGURAÇÃO DO FIREBASE
         // =================================================================================
+        // A sua configuração do Firebase foi inserida aqui.
+        const firebaseConfig = {
+            apiKey: "AIzaSyBxAjPzd-OoQU_CPeMawa6QtSLcwbY3J4A",
+            authDomain: "financeiro-4fd9a.firebaseapp.com",
+            projectId: "financeiro-4fd9a",
+            storageBucket: "financeiro-4fd9a.firebasestorage.app",
+            messagingSenderId: "82912149153",
+            appId: "1:82912149153:web:293977f1d12145eebb3ae0",
+            measurementId: "G-GL40EGD9YM"
+        };
+        // =================================================================================
+
         let fbApp, auth, db;
-
-        // Obtém a configuração do Firebase do ambiente da aplicação.
-        const firebaseConfig = typeof __firebase_config !== 'undefined' 
-            ? JSON.parse(__firebase_config)
-            : null;
-
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // =================================================================================
         // ESTADO DA APLICAÇÃO E CONFIGURAÇÕES
@@ -361,7 +365,7 @@
         };
 
         const LOCAL_STORAGE_KEYS = {
-            currentPeriod: `finance_app_currentPeriod_${appId}`,
+            currentPeriod: `finance_app_currentPeriod_v1`,
         };
         
         // =================================================================================
@@ -428,13 +432,12 @@
         const setupFirestoreListeners = (userId) => {
             if (AppState.listeners.length > 0) detachFirestoreListeners();
             const firestoreErrorBanner = document.getElementById('firestore-error-banner');
-            firestoreErrorBanner.classList.add('hidden'); // Oculta a faixa ao tentar novamente
+            firestoreErrorBanner.classList.add('hidden'); 
 
             const collections = ['transactions', 'shortcuts', 'clients', 'abates'];
             
             collections.forEach(collName => {
-                // Caminho para a coleção privada do usuário
-                const collPath = `artifacts/${appId}/users/${userId}/${collName}`;
+                const collPath = `users/${userId}/${collName}`;
                 const q = query(collection(db, collPath));
                 
                 const unsubscribe = onSnapshot(q, (querySnapshot) => {
@@ -446,7 +449,7 @@
                     renderAll(); 
                 }, (error) => {
                     console.error(`Error listening to ${collName}: `, error);
-                    firestoreErrorBanner.innerHTML = `<p class="font-bold">Erro de Ligação com a Base de Dados</p><p>Não foi possível ligar ao Firestore. Por favor, verifique a sua ligação à internet. Se o erro persistir, pode haver um problema com as configurações do serviço.</p>`;
+                    firestoreErrorBanner.innerHTML = `<p class="font-bold">Erro de Ligação com a Base de Dados</p><p>Não foi possível ligar ao Firestore. Verifique a sua ligação à internet e se as regras de segurança do seu projeto no Firebase permitem leitura e escrita para usuários autenticados.</p>`;
                     firestoreErrorBanner.classList.remove('hidden');
                 });
                 AppState.listeners.push(unsubscribe);
@@ -732,7 +735,6 @@
                 row.querySelector('.edit-btn').addEventListener('click', () => openTransactionModal(t));
                 row.querySelector('.delete-btn').addEventListener('click', () => handleDeleteTransaction(t.id));
 
-                // Cannot edit installments individually, only the group.
                 if (t.abateId || t.isInstallment) {
                    const editBtn = row.querySelector('.edit-btn');
                    editBtn.disabled = true;
@@ -822,12 +824,12 @@
         // =================================================================================
         
         const getDocRef = (collName, docId = null) => {
-            const path = `artifacts/${appId}/users/${AppState.userId}/${collName}`;
+            const path = `users/${AppState.userId}/${collName}`;
             return docId ? doc(db, path, docId) : doc(collection(db, path));
         };
 
         const getCollRef = (collName) => {
-             const path = `artifacts/${appId}/users/${AppState.userId}/${collName}`;
+             const path = `users/${AppState.userId}/${collName}`;
              return collection(db, path);
         }
 
@@ -917,7 +919,6 @@
             };
 
             try {
-                // Handle conversion from fixed to variable first
                 if (isEditing) {
                     const oldShortcut = AppState.shortcuts.find(s => s.id === id);
                     if (oldShortcut && oldShortcut.frequency === 'fixo' && newShortcutData.frequency === 'variavel') {
@@ -938,7 +939,6 @@
                     }
                 }
                 
-                // Standard Save/Update Logic
                 let shortcutId = id;
                 if (isEditing) {
                     await setDoc(getDocRef('shortcuts', shortcutId), newShortcutData);
@@ -947,16 +947,13 @@
                     shortcutId = docRef.id;
                 }
 
-                // Create future transactions for fixed shortcuts
                 if (newShortcutData.frequency === 'fixo') {
                     const referenceDate = getPeriodBounds(AppState.currentPeriodStartDate).start;
                     
-                    // First, delete existing future transactions if editing
                     if (isEditing) {
                         await deleteFutureTransactionsForShortcut(shortcutId, referenceDate);
                     }
                     
-                    // Create new future transactions
                     await generateAndCommitFutureTransactions(shortcutId, newShortcutData, referenceDate);
                 }
                 
@@ -986,7 +983,7 @@
         const generateAndCommitFutureTransactions = async (shortcutId, shortcutData, referenceDate) => {
             const periodsToGenerate = 60; // 5 years
             const batch = writeBatch(db);
-            const dueDay = Math.max(1, Math.min(28, shortcutData.dueDay || 11)); // Ensure day is between 1 and 28
+            const dueDay = Math.max(1, Math.min(28, shortcutData.dueDay || 11)); 
             
             for (let i = 0; i < periodsToGenerate; i++) {
                 const transactionDate = new Date(referenceDate);
@@ -1405,7 +1402,6 @@
             try {
                 detachFirestoreListeners();
                 await signOut(auth);
-                // The onAuthStateChanged listener will handle the UI changes.
                 showToast('Logout realizado com sucesso!', 'success');
             } catch (error) {
                 console.error('Logout error:', error);
@@ -1432,7 +1428,7 @@
         const initializeAppFlow = (user) => {
             AppState.userId = user.uid;
             AppState.isAuthReady = true;
-            document.getElementById('user-display').textContent = `ID do Usuário: ${user.uid}`;
+            document.getElementById('user-display').textContent = `Sessão do Usuário: ${user.uid.substring(0,8)}...`;
             
             document.getElementById('loading-container').classList.add('hidden');
             document.getElementById('app-container').classList.remove('hidden');
@@ -1445,7 +1441,8 @@
         const main = async () => {
             if (!firebaseConfig) {
                 console.error("Configuração do Firebase não encontrada.");
-                document.getElementById('loading-container').innerHTML = `<p class="text-red-500">Erro: Configuração do Firebase não encontrada.</p>`;
+                document.getElementById('loading-container').innerHTML = `<div class="text-center p-4"><i data-lucide="alert-triangle" class="w-16 h-16 mx-auto text-red-500"></i><p class="mt-4 text-lg text-red-600 font-semibold">Erro Crítico</p><p class="text-gray-600">A configuração do Firebase não foi fornecida no código-fonte.</p></div>`;
+                lucide.createIcons();
                 return;
             }
 
@@ -1453,7 +1450,7 @@
                 fbApp = initializeApp(firebaseConfig);
                 auth = getAuth(fbApp);
                 db = getFirestore(fbApp);
-                setLogLevel('debug'); // Para logs detalhados no console
+                // setLogLevel('debug'); 
 
                 await enableIndexedDbPersistence(db);
                 console.log("Persistência offline ativada.");
@@ -1467,14 +1464,11 @@
             
             onAuthStateChanged(auth, (user) => {
                 if (user) {
-                    // User is signed in.
-                    if (!AppState.isAuthReady) { // Prevent re-initialization on token refresh
+                    if (!AppState.isAuthReady) { 
                        initializeAppFlow(user);
                     }
                 } else {
-                    // User is signed out.
                     resetAppState();
-                    // Attempt to sign in again.
                     authenticateUser();
                 }
             });
@@ -1484,26 +1478,20 @@
 
         const authenticateUser = async () => {
             try {
-                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                await signInAnonymously(auth);
             } catch (error) {
                 console.error("Erro na autenticação:", error);
-                document.getElementById('loading-container').innerHTML = `<p class="text-red-500">Erro na autenticação. Por favor, recarregue a página.</p>`;
+                document.getElementById('loading-container').innerHTML = `<p class="text-red-500">Erro na autenticação. Verifique suas regras de segurança no Firebase.</p>`;
             }
         };
 
         // --- Adicionar Event Listeners ---
 
-        // Listeners estáticos
         document.getElementById('logout-btn').addEventListener('click', handleLogout);
         document.getElementById('prev-period').addEventListener('click', () => changePeriod(-1));
         document.getElementById('next-period').addEventListener('click', () => changePeriod(1));
         document.getElementById('transaction-search').addEventListener('input', renderTransactionList);
 
-        // Navegação por abas
         document.querySelectorAll('.tab-item').forEach(tab => {
             tab.addEventListener('click', () => {
                 AppState.currentTab = tab.dataset.tab;
@@ -1511,11 +1499,9 @@
             });
         });
 
-        // Delegação de eventos para conteúdo dinâmico
         document.addEventListener('click', (e) => {
             const target = e.target;
             
-            // Atalhos
             if (target.closest('.new-shortcut-btn')) {
                 const type = target.closest('.new-shortcut-btn').dataset.type;
                 openShortcutModal(type);
@@ -1536,10 +1522,8 @@
                 handleDeleteShortcutPermanently(shortcutId);
             }
             
-            // Transações
             if (target.closest('#add-generic-transaction-btn')) openTransactionModal();
             
-            // Clientes
             const consultoriaContent = document.getElementById('consultoria-content');
             if (consultoriaContent.contains(target)) {
                  if (target.closest('#add-client-btn')) openClientModal();
@@ -1565,7 +1549,6 @@
             }
         });
 
-        // Iniciar a aplicação
         main();
 
     </script>
