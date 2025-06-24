@@ -54,32 +54,11 @@
     </style>
 </head>
 <body class="text-gray-800">
-    <!-- Tela de Autenticação -->
-    <div id="auth-container" class="flex items-center justify-center min-h-screen bg-gray-100">
-        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-            <div>
-                <h2 class="text-2xl font-bold text-center text-gray-800">Centro de Comando Financeiro</h2>
-                <p class="mt-2 text-sm text-center text-gray-600">Acesse sua conta para continuar</p>
-            </div>
-            <form id="login-form" class="space-y-6">
-                <div class="space-y-2">
-                    <label for="email" class="text-sm font-medium">Email</label>
-                    <input type="email" id="email" name="email" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                <div class="space-y-2">
-                    <label for="password" class="text-sm font-medium">Senha</label>
-                    <input type="password" id="password" name="password" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                <div id="auth-error" class="text-sm text-red-600"></div>
-                <div>
-                    <button type="submit" id="login-btn" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                        Entrar
-                    </button>
-                </div>
-            </form>
-            <div class="text-sm text-center text-gray-600">
-                <p>Não tem uma conta? <button id="show-signup" class="font-medium text-blue-500 hover:underline">Cadastre-se</button></p>
-            </div>
+    <!-- Tela de Carregamento -->
+    <div id="loading-container" class="flex items-center justify-center min-h-screen bg-gray-100">
+        <div class="text-center">
+            <i data-lucide="loader-2" class="w-16 h-16 mx-auto text-blue-500 animate-spin"></i>
+            <p class="mt-4 text-lg text-gray-600">Carregando e autenticando...</p>
         </div>
     </div>
     
@@ -90,12 +69,15 @@
         <header class="mb-6 flex justify-between items-center">
             <div>
                 <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Centro de Comando Financeiro</h1>
-                <p id="user-display" class="text-gray-500"></p>
+                <p id="user-display" class="text-gray-500 text-xs md:text-sm break-all"></p>
             </div>
             <button id="logout-btn" class="bg-red-500 text-white font-semibold px-4 py-2 rounded-lg shadow hover:bg-red-600 flex items-center gap-2">
                 <i data-lucide="log-out" class="w-5 h-5"></i> Sair
             </button>
         </header>
+
+        <!-- Faixa de Erro de Conexão -->
+        <div id="firestore-error-banner" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4" role="alert"></div>
 
         <!-- Navegação por Abas -->
         <nav class="mb-6 border-b border-gray-200">
@@ -236,13 +218,13 @@
     </template>
     
     <template id="shortcut-card-template">
-        <div class="shortcut-card flex flex-col items-center justify-center p-3 border rounded-lg cursor-pointer hover:shadow-md hover:border-blue-400 transition-shadow h-full">
+        <div class="shortcut-card relative group flex flex-col items-center justify-center p-3 border rounded-lg cursor-pointer hover:shadow-md hover:border-blue-400 transition-shadow h-full">
             <i class="shortcut-icon w-8 h-8 mb-1"></i>
             <span class="shortcut-name text-sm text-center font-medium"></span>
             <span class="shortcut-total text-sm font-bold mt-1"></span>
             <div class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
                  <button class="edit-shortcut-btn p-1 text-gray-400 hover:text-blue-500" title="Editar Atalho"><i data-lucide="edit-3" class="w-3 h-3"></i></button>
-                 <button class="delete-shortcut-btn p-1 text-gray-400 hover:text-red-500 hidden" title="Excluir Permanentemente"><i data-lucide="shield-x" class="w-3 h-3"></i></button>
+                 <button class="delete-shortcut-btn p-1 text-gray-400 hover:text-red-500" title="Excluir Permanentemente"><i data-lucide="shield-x" class="w-3 h-3"></i></button>
             </div>
         </div>
     </template>
@@ -285,26 +267,26 @@
                         <p id="detail-client-value" class="text-gray-500"></p>
                     </div>
                      <button id="add-abate-btn" class="bg-teal-500 text-white font-semibold px-4 py-2 rounded-lg shadow hover:bg-teal-600 flex items-center gap-2">
-                        <i data-lucide="git-commit" class="w-5 h-5"></i> Novo Abate
-                    </button>
+                         <i data-lucide="git-commit" class="w-5 h-5"></i> Novo Abate
+                     </button>
                 </div>
                 
                 <h3 class="text-xl font-bold mb-4">Abates no Período</h3>
                  <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead>
-                            <tr class="border-b">
-                                <th class="p-2">Data</th>
-                                <th class="p-2">Nº Cabeças</th>
-                                <th class="p-2 text-right">Receita Total</th>
-                                <th class="p-2 text-right">Custo Total</th>
-                                <th class="p-2 text-center">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="abate-list">
-                            <!-- Linhas de abate serão inseridas aqui -->
-                        </tbody>
-                    </table>
+                     <table class="w-full text-left">
+                         <thead>
+                             <tr class="border-b">
+                                 <th class="p-2">Data</th>
+                                 <th class="p-2">Nº Cabeças</th>
+                                 <th class="p-2 text-right">Receita Total</th>
+                                 <th class="p-2 text-right">Custo Total</th>
+                                 <th class="p-2 text-center">Ações</th>
+                             </tr>
+                         </thead>
+                         <tbody id="abate-list">
+                             <!-- Linhas de abate serão inseridas aqui -->
+                         </tbody>
+                     </table>
                 </div>
             </div>
         </div>
@@ -318,24 +300,24 @@
             <td class="p-2 text-right abate-cost text-red-600 font-medium"></td>
             <td class="p-2">
                  <div class="flex justify-center items-center gap-2">
-                    <button class="edit-abate-btn p-1 text-gray-500 hover:text-blue-600"><i data-lucide="edit" class="w-4 h-4"></i></button>
-                    <button class="delete-abate-btn p-1 text-gray-500 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                </div>
+                     <button class="edit-abate-btn p-1 text-gray-500 hover:text-blue-600"><i data-lucide="edit" class="w-4 h-4"></i></button>
+                     <button class="delete-abate-btn p-1 text-gray-500 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                 </div>
             </td>
         </tr>
     </template>
 
-    <!-- Firebase SDKs -->
+    <!-- Firebase SDKs (Versão Atualizada) -->
     <script type="module">
-        // Importar as funções necessárias dos SDKs
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+        // Importar as funções necessárias dos SDKs mais recentes
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { 
             getAuth, 
             onAuthStateChanged,
-            createUserWithEmailAndPassword,
-            signInWithEmailAndPassword,
+            signInWithCustomToken,
+            signInAnonymously,
             signOut 
-        } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { 
             getFirestore,
             collection,
@@ -345,26 +327,22 @@
             deleteDoc,
             onSnapshot,
             query,
-            where
-        } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+            writeBatch,
+            enableIndexedDbPersistence,
+            setLogLevel
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Configuração do Firebase que você forneceu
-        // ATENÇÃO: É uma boa prática usar variáveis de ambiente para chaves de API,
-        // mas para este exemplo, usaremos a configuração diretamente.
-        const firebaseConfig = {
-          apiKey: "AIzaSyBxAjPzd-OoQU_CPeMawa6QtSLcwbY3J4A",
-          authDomain: "financeiro-4fd9a.firebaseapp.com",
-          projectId: "financeiro-4fd9a",
-          storageBucket: "financeiro-4fd9a.firebasestorage.app",
-          messagingSenderId: "82912149153",
-          appId: "1:82912149153:web:293977f1d12145eebb3ae0",
-          measurementId: "G-GL40EGD9YM"
-        };
+        // =================================================================================
+        // INICIALIZAÇÃO E CONFIGURAÇÃO DO FIREBASE
+        // =================================================================================
+        let fbApp, auth, db;
 
-        // Inicializar Firebase
-        const fbApp = initializeApp(firebaseConfig);
-        const auth = getAuth(fbApp);
-        const db = getFirestore(fbApp);
+        // Obtém a configuração do Firebase do ambiente da aplicação.
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config)
+            : null;
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // =================================================================================
         // ESTADO DA APLICAÇÃO E CONFIGURAÇÕES
@@ -379,10 +357,11 @@
             currentClientId: null,
             userId: null, // ID do usuário logado
             listeners: [], // Armazena os listeners do Firestore para desligá-los no logout
+            isAuthReady: false,
         };
 
         const LOCAL_STORAGE_KEYS = {
-            currentPeriod: 'finance_app_currentPeriod_v1',
+            currentPeriod: `finance_app_currentPeriod_${appId}`,
         };
         
         // =================================================================================
@@ -411,7 +390,6 @@
             }
             input.value = value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         };
-
 
         const formatDate = (date) => {
             const d = date.toDate ? date.toDate() : new Date(date); // Handle Firebase Timestamps
@@ -448,10 +426,17 @@
         // =================================================================================
         
         const setupFirestoreListeners = (userId) => {
+            if (AppState.listeners.length > 0) detachFirestoreListeners();
+            const firestoreErrorBanner = document.getElementById('firestore-error-banner');
+            firestoreErrorBanner.classList.add('hidden'); // Oculta a faixa ao tentar novamente
+
             const collections = ['transactions', 'shortcuts', 'clients', 'abates'];
             
             collections.forEach(collName => {
-                const q = query(collection(db, `users/${userId}/${collName}`));
+                // Caminho para a coleção privada do usuário
+                const collPath = `artifacts/${appId}/users/${userId}/${collName}`;
+                const q = query(collection(db, collPath));
+                
                 const unsubscribe = onSnapshot(q, (querySnapshot) => {
                     const data = [];
                     querySnapshot.forEach((doc) => {
@@ -461,7 +446,8 @@
                     renderAll(); 
                 }, (error) => {
                     console.error(`Error listening to ${collName}: `, error);
-                    showToast(`Erro ao carregar ${collName}.`, 'error');
+                    firestoreErrorBanner.innerHTML = `<p class="font-bold">Erro de Ligação com a Base de Dados</p><p>Não foi possível ligar ao Firestore. Por favor, verifique a sua ligação à internet. Se o erro persistir, pode haver um problema com as configurações do serviço.</p>`;
+                    firestoreErrorBanner.classList.remove('hidden');
                 });
                 AppState.listeners.push(unsubscribe);
             });
@@ -581,7 +567,6 @@
         // =================================================================================
 
         const renderAll = () => {
-            // A chamada de salvar dados é removida daqui, pois o Firestore salva em tempo real.
             renderTabs();
             if (AppState.userId) {
                 switch (AppState.currentTab) {
@@ -678,6 +663,7 @@
                 card.querySelector('.shortcut-icon').setAttribute('data-lucide', shortcut.icon || 'dollar-sign');
                 card.querySelector('.shortcut-name').textContent = shortcut.name;
                 const totalEl = card.querySelector('.shortcut-total');
+                const cardTextColor = shortcut.type === 'receita' ? 'text-green-700' : 'text-red-700';
 
                 if (shortcut.frequency === 'variavel') {
                     const monthlyTxs = AppState.transactions.filter(t => {
@@ -687,78 +673,65 @@
                                tDate >= start &&
                                tDate <= end
                     });
-                    const totalValue = monthlyTxs.reduce((sum, t) => sum + t.value, 0);
-                    if (totalValue > 0) {
-                        totalEl.textContent = formatCurrency(totalValue);
-                        totalEl.className = 'shortcut-total text-sm font-bold mt-1 ' + (shortcut.type === 'receita' ? 'text-green-600' : 'text-red-600');
-                    } else {
-                        totalEl.textContent = '';
-                    }
+                    const monthlyTotal = monthlyTxs.reduce((sum, t) => sum + t.value, 0);
+                    totalEl.textContent = formatCurrency(monthlyTotal);
+                    totalEl.className = `text-sm font-bold mt-1 ${cardTextColor}`;
                 } else {
-                     totalEl.textContent = '';
+                    totalEl.textContent = formatCurrency(shortcut.value);
+                    totalEl.className = `text-sm font-bold mt-1 ${cardTextColor}`;
                 }
 
-                const cardTextColor = shortcut.type === 'receita' ? 'text-green-700' : 'text-red-700';
-                const cardBorderColor = shortcut.type === 'receita' ? 'border-green-200' : 'border-red-200';
-                card.classList.add(cardTextColor, cardBorderColor, 'group', 'relative');
-                if (shortcut.frequency === 'fixo') {
-                    const pinIcon = document.createElement('i');
-                    pinIcon.setAttribute('data-lucide', 'pin');
-                    pinIcon.className = 'w-3 h-3 absolute top-1 left-1 text-gray-400';
-                    card.appendChild(pinIcon);
-                    const deleteBtn = card.querySelector('.delete-shortcut-btn');
-                    if (deleteBtn) {
-                        deleteBtn.classList.remove('hidden');
-                    }
-                }
-                if (shortcut.type === 'receita') receitasContainer.appendChild(card);
-                else despesasContainer.appendChild(card);
+                const container = shortcut.type === 'receita' ? receitasContainer : despesasContainer;
+                container.appendChild(card);
             });
-            lucide.createIcons();
         };
 
-        const renderTransactionList = (filterText = '') => {
+        const renderTransactionList = () => {
             const container = document.getElementById('transaction-list');
             container.innerHTML = '';
-            if(!AppState.currentPeriodStartDate) return;
+            if (!AppState.currentPeriodStartDate) return;
             const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
-            const filteredTransactions = AppState.transactions
-                .filter(t => {
-                    if (t.isDeleted) return false;
-                    const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
-                    return tDate >= start && tDate <= end &&
-                           t.description.toLowerCase().includes(filterText.toLowerCase());
-                })
-                .sort((a, b) => (b.date.toDate ? b.date.toDate() : new Date(b.date)) - (a.date.toDate ? a.date.toDate() : new Date(a.date)));
-            if (filteredTransactions.length === 0) {
-                container.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-8">Nenhuma transação neste período.</td></tr>`;
+            const searchTerm = document.getElementById('transaction-search').value.toLowerCase();
+            const transactionsInPeriod = AppState.transactions.filter(t => {
+                const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
+                const matchesSearch = t.description.toLowerCase().includes(searchTerm);
+                return !t.isDeleted && tDate >= start && tDate <= end && matchesSearch;
+            }).sort((a, b) => {
+                const aDate = a.date.toDate ? a.date.toDate() : new Date(a.date);
+                const bDate = b.date.toDate ? b.date.toDate() : new Date(b.date);
+                return bDate - aDate;
+            });
+
+            if (transactionsInPeriod.length === 0) {
+                container.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-8">Nenhuma transação encontrada para este período.</td></tr>`;
                 return;
             }
+
             const template = document.getElementById('transaction-row-template');
-            filteredTransactions.forEach(t => {
+            transactionsInPeriod.forEach(t => {
                 const row = template.content.cloneNode(true).firstElementChild;
                 row.dataset.id = t.id;
                 const checkbox = row.querySelector('.status-checkbox');
                 const statusText = row.querySelector('.status-text');
+                const typeIcon = row.querySelector('.type-icon');
+                const descriptionText = row.querySelector('.description-text');
                 const valueText = row.querySelector('.value-text');
-                checkbox.checked = t.status === 'pago' || t.status === 'recebido';
-                checkbox.dataset.transactionId = t.id;
-                if (t.type === 'receita') {
-                    statusText.textContent = t.status === 'recebido' ? 'Recebido' : 'A Receber';
-                    valueText.classList.add('text-green-600');
-                    row.querySelector('.type-icon').setAttribute('data-lucide', 'arrow-up-circle');
-                    row.querySelector('.type-icon').classList.add('text-green-500');
-                } else {
-                    statusText.textContent = t.status === 'pago' ? 'Pago' : 'A Pagar';
-                    valueText.classList.add('text-red-600');
-                    row.querySelector('.type-icon').setAttribute('data-lucide', 'arrow-down-circle');
-                    row.querySelector('.type-icon').classList.add('text-red-500');
-                }
-                row.querySelector('.description-text').textContent = t.description;
+                const dateText = row.querySelector('.date-text');
+
+                checkbox.checked = (t.type === 'receita' && t.status === 'recebido') || (t.type === 'despesa' && t.status === 'pago');
+                statusText.textContent = t.status === 'recebido' || t.status === 'pago' ? 'Concluído' : 'Pendente';
+                statusText.className = `text-sm ${checkbox.checked ? 'text-green-600' : 'text-yellow-600'}`;
+                typeIcon.setAttribute('data-lucide', t.type === 'receita' ? 'trending-up' : 'trending-down');
+                typeIcon.className = `type-icon w-5 h-5 ${t.type === 'receita' ? 'text-green-600' : 'text-red-600'}`;
+                descriptionText.textContent = t.description;
                 valueText.textContent = formatCurrency(t.value);
-                row.querySelector('.date-text').textContent = formatDate(t.date);
-                row.querySelector('.edit-btn').dataset.id = t.id;
-                row.querySelector('.delete-btn').dataset.id = t.id;
+                valueText.className = `p-2 text-right value-text font-medium ${t.type === 'receita' ? 'text-green-600' : 'text-red-600'}`;
+                dateText.textContent = formatDate(t.date);
+
+                checkbox.addEventListener('change', () => handleToggleTransactionStatus(t.id));
+                row.querySelector('.edit-btn').addEventListener('click', () => openTransactionModal(t));
+                row.querySelector('.delete-btn').addEventListener('click', () => handleDeleteTransaction(t.id));
+
                 // Cannot edit installments individually, only the group.
                 if (t.abateId || t.isInstallment) {
                    const editBtn = row.querySelector('.edit-btn');
@@ -775,19 +748,22 @@
             container.innerHTML = document.getElementById('client-list-view-template').innerHTML;
             const listContainer = document.getElementById('client-list-container');
             listContainer.innerHTML = '';
-            if (AppState.clients.length === 0) {
+            
+            const sortedClients = [...AppState.clients].sort((a, b) => a.name.localeCompare(b.name));
+
+            if (sortedClients.length === 0) {
                 listContainer.innerHTML = `<p class="text-gray-500 col-span-full text-center py-8">Nenhum cliente cadastrado. Clique em "Novo Cliente" para começar.</p>`;
-                return;
+            } else {
+                const cardTemplate = document.getElementById('client-card-template');
+                sortedClients.forEach(client => {
+                    const card = cardTemplate.content.cloneNode(true).firstElementChild;
+                    card.dataset.id = client.id;
+                    card.querySelector('.client-name').textContent = client.name;
+                    card.querySelector('.client-value').textContent = `${formatCurrency(client.valuePerHead)} por cabeça`;
+                    card.querySelector('.edit-client-btn').dataset.id = client.id;
+                    listContainer.appendChild(card);
+                });
             }
-            const cardTemplate = document.getElementById('client-card-template');
-            AppState.clients.forEach(client => {
-                const card = cardTemplate.content.cloneNode(true).firstElementChild;
-                card.dataset.id = client.id;
-                card.querySelector('.client-name').textContent = client.name;
-                card.querySelector('.client-value').textContent = `${formatCurrency(client.valuePerHead)} por cabeça`;
-                card.querySelector('.edit-client-btn').dataset.id = client.id;
-                listContainer.appendChild(card);
-            });
             lucide.createIcons();
         };
 
@@ -812,11 +788,13 @@
             listContainer.innerHTML = '';
             if(!AppState.currentPeriodStartDate) return;
             const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
+            
             const abatesInPeriod = AppState.abates.filter(a => {
                 if (a.isDeleted) return false;
                 const aDate = a.date.toDate ? a.date.toDate() : new Date(a.date);
                 return a.clientId === clientId && aDate >= start && aDate <= end;
-            });
+            }).sort((a,b) => (b.date.toDate ? b.date.toDate() : new Date(b.date)) - (a.date.toDate ? a.date.toDate() : new Date(a.date)));
+
             if (abatesInPeriod.length === 0) {
                 listContainer.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-8">Nenhum abate registrado para este cliente no período.</td></tr>`;
                 return;
@@ -842,6 +820,16 @@
         // =================================================================================
         // LÓGICA DOS MODAIS E MANIPULAÇÃO DE DADOS
         // =================================================================================
+        
+        const getDocRef = (collName, docId = null) => {
+            const path = `artifacts/${appId}/users/${AppState.userId}/${collName}`;
+            return docId ? doc(db, path, docId) : doc(collection(db, path));
+        };
+
+        const getCollRef = (collName) => {
+             const path = `artifacts/${appId}/users/${AppState.userId}/${collName}`;
+             return collection(db, path);
+        }
 
         // -- Atalhos --
         const openShortcutModal = async (shortcutType, shortcutId = null) => {
@@ -864,33 +852,51 @@
                     </div>
                     <div>
                         <span class="block text-sm font-medium text-gray-700">Frequência</span>
-                        <div class="mt-2 flex gap-4">
+                        <div id="frequency-selector" class="mt-2 flex gap-4">
                             <label><input type="radio" name="frequency" value="variavel" ${(!shortcut || shortcut.frequency === 'variavel') ? 'checked' : ''}> Lançamento Variável</label>
                             <label><input type="radio" name="frequency" value="fixo" ${(shortcut?.frequency === 'fixo') ? 'checked' : ''}> Lançamento Fixo</label>
                         </div>
                     </div>
-                     <div>
-                        <span class="block text-sm font-medium text-gray-700">Ícone</span>
-                        <div class="mt-2 grid grid-cols-6 gap-2">
-                           ${availableIcons.map(icon => `
-                               <label class="p-2 border rounded-md flex justify-center items-center cursor-pointer has-[:checked]:bg-blue-100 has-[:checked]:border-blue-500">
-                                   <input type="radio" name="icon" value="${icon}" class="sr-only" ${shortcut?.icon === icon ? 'checked' : ''}>
-                                   <i data-lucide="${icon}"></i>
-                               </label>
-                           `).join('')}
-                        </div>
-                    </div>
+                     <div id="due-day-container" class="hidden">
+                         <label class="block text-sm font-medium text-gray-700">Dia do Vencimento (1-28)</label>
+                         <input type="number" name="dueDay" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${shortcut?.dueDay || '11'}" min="1" max="28">
+                     </div>
+                      <div>
+                         <span class="block text-sm font-medium text-gray-700">Ícone</span>
+                         <div class="mt-2 grid grid-cols-6 gap-2">
+                            ${availableIcons.map(icon => `
+                                <label class="p-2 border rounded-md flex justify-center items-center cursor-pointer has-[:checked]:bg-blue-100 has-[:checked]:border-blue-500">
+                                    <input type="radio" name="icon" value="${icon}" class="sr-only" ${shortcut?.icon === icon ? 'checked' : ''}>
+                                    <i data-lucide="${icon}"></i>
+                                </label>
+                            `).join('')}
+                         </div>
+                     </div>
                     <div class="flex justify-end gap-4 pt-4">
                         <button type="button" class="cancel-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">Cancelar</button>
                         <button type="submit" class="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600">Salvar</button>
                     </div>
                 </form>`;
             openModal(html, () => {
-                 document.querySelectorAll('.currency-input').forEach(input => {
+                const dueDayContainer = document.getElementById('due-day-container');
+                const frequencySelector = document.getElementById('frequency-selector');
+
+                const toggleDueDay = () => {
+                    if (document.querySelector('input[name="frequency"]:checked').value === 'fixo') {
+                        dueDayContainer.classList.remove('hidden');
+                    } else {
+                        dueDayContainer.classList.add('hidden');
+                    }
+                };
+
+                frequencySelector.addEventListener('change', toggleDueDay);
+                toggleDueDay();
+
+                document.querySelectorAll('.currency-input').forEach(input => {
                     input.addEventListener('input', () => formatCurrencyInput(input));
                 });
-                 document.getElementById('shortcut-form').addEventListener('submit', handleSaveShortcut);
-                 document.querySelector('.cancel-btn').addEventListener('click', closeModal);
+                document.getElementById('shortcut-form').addEventListener('submit', handleSaveShortcut);
+                document.querySelector('.cancel-btn').addEventListener('click', closeModal);
             });
         };
 
@@ -900,94 +906,105 @@
             const formData = new FormData(form);
             const id = formData.get('id');
             const isEditing = !!id;
-            const oldShortcut = isEditing ? { ...AppState.shortcuts.find(s => s.id === id) } : null;
+            
             const newShortcutData = {
                 name: formData.get('name'),
                 value: parseCurrency(formData.get('value')),
                 type: formData.get('type'),
                 frequency: formData.get('frequency'),
+                dueDay: parseInt(formData.get('dueDay')) || 11,
                 icon: formData.get('icon') || 'dollar-sign',
             };
-            const referenceDate = getPeriodBounds(AppState.currentPeriodStartDate).start;
 
-            const performSave = async () => {
-                try {
+            try {
+                // Handle conversion from fixed to variable first
+                if (isEditing) {
+                    const oldShortcut = AppState.shortcuts.find(s => s.id === id);
+                    if (oldShortcut && oldShortcut.frequency === 'fixo' && newShortcutData.frequency === 'variavel') {
+                        const msg = "Converter para 'Variável' irá apagar todas as transações futuras pendentes deste atalho. Deseja continuar?";
+                        openConfirmationModal(msg, async () => {
+                            try {
+                                const referenceDate = getPeriodBounds(AppState.currentPeriodStartDate).start;
+                                await deleteFutureTransactionsForShortcut(id, referenceDate);
+                                await setDoc(getDocRef('shortcuts', id), newShortcutData);
+                                showToast('Atalho convertido para variável.', 'success');
+                                closeModal();
+                            } catch (error) {
+                                console.error("Erro ao converter atalho:", error);
+                                showToast('Erro ao converter o atalho.', 'error');
+                            }
+                        });
+                        return; 
+                    }
+                }
+                
+                // Standard Save/Update Logic
+                let shortcutId = id;
+                if (isEditing) {
+                    await setDoc(getDocRef('shortcuts', shortcutId), newShortcutData);
+                } else {
+                    const docRef = await addDoc(getCollRef('shortcuts'), newShortcutData);
+                    shortcutId = docRef.id;
+                }
+
+                // Create future transactions for fixed shortcuts
+                if (newShortcutData.frequency === 'fixo') {
+                    const referenceDate = getPeriodBounds(AppState.currentPeriodStartDate).start;
+                    
+                    // First, delete existing future transactions if editing
                     if (isEditing) {
-                        const docRef = doc(db, `users/${AppState.userId}/shortcuts`, id);
-                        await setDoc(docRef, newShortcutData);
-                    } else {
-                        await addDoc(collection(db, `users/${AppState.userId}/shortcuts`), newShortcutData);
+                        await deleteFutureTransactionsForShortcut(shortcutId, referenceDate);
                     }
+                    
+                    // Create new future transactions
+                    await generateAndCommitFutureTransactions(shortcutId, newShortcutData, referenceDate);
+                }
+                
+                showToast(`Atalho ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
+                closeModal();
 
-                    if (newShortcutData.frequency === 'fixo') {
-                        await generateFutureTransactionsForShortcut(isEditing ? id : null, newShortcutData);
-                    }
-                    closeModal();
-                    showToast(`Atalho ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
-                } catch (error) {
-                    console.error("Error saving shortcut: ", error);
-                    showToast('Erro ao salvar o atalho.', 'error');
-                }
-            };
-            
-            if (isEditing) {
-                const isConvertingToVariable = oldShortcut.frequency === 'fixo' && newShortcutData.frequency === 'variavel';
-                const isChangingFixedValue = oldShortcut.frequency === 'fixo' && newShortcutData.frequency === 'fixo' && oldShortcut.value !== newShortcutData.value;
-                if (isConvertingToVariable) {
-                    const msg = "Ao converter este atalho para 'Variável', todas as transações futuras pendentes (a partir deste período) serão permanentemente excluídas. Deseja continuar?";
-                    openConfirmationModal(msg, async () => {
-                        await deleteFutureTransactionsForShortcut(id, referenceDate);
-                        await performSave();
-                    });
-                    return;
-                }
-                if (isChangingFixedValue) {
-                    const msg = "Ao alterar o valor de um atalho fixo, as transações futuras (a partir deste período) serão atualizadas. Transações passadas ou já pagas/recebidas permanecerão inalteradas. Deseja continuar?";
-                    openConfirmationModal(msg, async () => {
-                        await deleteFutureTransactionsForShortcut(id, referenceDate);
-                        await performSave();
-                    });
-                    return;
-                }
+            } catch (error) {
+                console.error("Erro ao salvar atalho:", error);
+                showToast('Erro ao salvar o atalho: ' + error.message, 'error');
             }
-            await performSave();
         };
         
         const deleteFutureTransactionsForShortcut = async (shortcutId, referenceDate) => {
-             const transactionsToDelete = AppState.transactions.filter(t => {
+            const batch = writeBatch(db);
+            const transactionsToDelete = AppState.transactions.filter(t => {
                 const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
                 return t.shortcutId === shortcutId && tDate >= referenceDate && (t.status !== 'pago' && t.status !== 'recebido');
             });
-
-            for(const tx of transactionsToDelete){
-                await deleteDoc(doc(db, `users/${AppState.userId}/transactions`, tx.id));
+            
+            transactionsToDelete.forEach(tx => batch.delete(getDocRef('transactions', tx.id)));
+            
+            if (transactionsToDelete.length > 0) {
+                await batch.commit();
             }
         };
 
-        const generateFutureTransactionsForShortcut = async (shortcutId, shortcutData) => {
-            const newId = shortcutId || (await addDoc(collection(db, `users/${AppState.userId}/shortcuts`), shortcutData)).id;
-            const periodsToGenerate = 60; 
+        const generateAndCommitFutureTransactions = async (shortcutId, shortcutData, referenceDate) => {
+            const periodsToGenerate = 60; // 5 years
+            const batch = writeBatch(db);
+            const dueDay = Math.max(1, Math.min(28, shortcutData.dueDay || 11)); // Ensure day is between 1 and 28
+            
             for (let i = 0; i < periodsToGenerate; i++) {
-                const periodStart = new Date(AppState.currentPeriodStartDate);
-                periodStart.setUTCMonth(periodStart.getUTCMonth() + i);
-                const transactionDate = new Date(periodStart);
-                 const exists = AppState.transactions.some(t => {
-                    const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
-                    return t.shortcutId === newId && tDate.getTime() === transactionDate.getTime();
-                });
+                const transactionDate = new Date(referenceDate);
+                transactionDate.setUTCMonth(transactionDate.getUTCMonth() + i);
+                transactionDate.setUTCDate(dueDay);
                 
-                 if (!exists) {
-                    await addDoc(collection(db, `users/${AppState.userId}/transactions`), {
-                        shortcutId: newId,
-                        description: shortcutData.name,
-                        value: shortcutData.value,
-                        date: transactionDate,
-                        type: shortcutData.type,
-                        status: shortcutData.type === 'receita' ? 'a receber' : 'a pagar',
-                        isDeleted: false,
-                    });
-                 }
+                const newTxRef = getDocRef('transactions');
+                batch.set(newTxRef, {
+                    shortcutId,
+                    description: shortcutData.name,
+                    value: shortcutData.value,
+                    date: transactionDate,
+                    type: shortcutData.type,
+                    status: shortcutData.type === 'receita' ? 'a receber' : 'a pagar',
+                    isDeleted: false,
+                });
             }
+            await batch.commit();
         };
 
         const handleShortcutClick = (shortcutId) => {
@@ -1009,133 +1026,101 @@
         const handleDeleteShortcutPermanently = (shortcutId) => {
             const msg = "Tem certeza que deseja excluir permanentemente este atalho e TODAS as suas transações futuras (a partir deste período)? Transações passadas não serão afetadas. Esta ação é irreversível.";
             openConfirmationModal(msg, async () => {
-                const referenceDate = getPeriodBounds(AppState.currentPeriodStartDate).start;
-                
-                // Delete future transactions
-                const txsToDelete = AppState.transactions.filter(t => {
-                    const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
-                    return t.shortcutId === shortcutId && tDate >= referenceDate;
-                });
-                for(const tx of txsToDelete){
-                    await deleteDoc(doc(db, `users/${AppState.userId}/transactions`, tx.id));
+                try {
+                    const referenceDate = getPeriodBounds(AppState.currentPeriodStartDate).start;
+                    const batch = writeBatch(db);
+                    
+                    const txsToDelete = AppState.transactions.filter(t => {
+                        const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
+                        return t.shortcutId === shortcutId && tDate >= referenceDate;
+                    });
+                    txsToDelete.forEach(tx => batch.delete(getDocRef('transactions', tx.id)));
+                    batch.delete(getDocRef('shortcuts', shortcutId));
+                    await batch.commit();
+                    showToast('Atalho e transações futuras excluídos com sucesso!', 'success');
+                } catch (error) {
+                    console.error("Erro ao excluir atalho:", error);
+                    showToast('Erro ao excluir o atalho.', 'error');
                 }
-                
-                // Delete the shortcut itself
-                await deleteDoc(doc(db, `users/${AppState.userId}/shortcuts`, shortcutId));
-
-                showToast('Atalho e transações futuras excluídos.', 'success');
             });
         };
 
         // -- Transações --
-        const openTransactionModal = (txData = {}) => {
-            const isEditing = !!txData.id;
+        const openTransactionModal = (transaction = null) => {
+            const isEditing = !!transaction?.id;
             const title = isEditing ? 'Editar Transação' : 'Nova Transação';
             const today = new Date().toISOString().split('T')[0];
             const html = `
-                 <form id="transaction-form" class="p-6 space-y-4">
+                <form id="transaction-form" class="p-6 space-y-4">
                     <h3 class="text-xl font-bold mb-4">${title}</h3>
-                    <input type="hidden" name="id" value="${txData.id || ''}">
-                    <input type="hidden" name="shortcutId" value="${txData.shortcutId || ''}">
+                    <input type="hidden" name="id" value="${transaction?.id || ''}">
+                    <input type="hidden" name="shortcutId" value="${transaction?.shortcutId || ''}">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Descrição</label>
-                        <input type="text" name="description" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${txData.description || ''}" required>
+                        <input type="text" name="description" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${transaction?.description || ''}" required>
                     </div>
                     <div>
-                        <label id="value-label" class="block text-sm font-medium text-gray-700">Valor</label>
-                        <input type="text" name="value" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(txData.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}" required>
+                        <label class="block text-sm font-medium text-gray-700">Valor</label>
+                        <input type="text" name="value" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(transaction?.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}" required>
                     </div>
                     <div>
-                        <label id="date-label" class="block text-sm font-medium text-gray-700">Data</label>
-                        <input type="date" name="date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(txData.date ? (txData.date.toDate ? txData.date.toDate() : new Date(txData.date)).toISOString().split('T')[0] : today)}" required>
+                        <label class="block text-sm font-medium text-gray-700">Data</label>
+                        <input type="date" name="date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${transaction?.date ? (transaction.date.toDate ? transaction.date.toDate() : new Date(transaction.date)).toISOString().split('T')[0] : today}" required>
                     </div>
                     <div>
-                         <span class="block text-sm font-medium text-gray-700">Tipo</span>
-                         <div id="type-selector" class="mt-2 flex gap-4">
-                            <label><input type="radio" name="type" value="receita" ${txData.type === 'receita' ? 'checked' : ''} required> Receita</label>
-                            <label><input type="radio" name="type" value="despesa" ${!txData.type || txData.type === 'despesa' ? 'checked' : ''} required> Despesa</label>
-                         </div>
-                    </div>
-
-                    <div id="installment-options-container" class="hidden space-y-4">
-                        <div>
-                            <label class="flex items-center">
-                                <input type="checkbox" id="is-installment-checkbox" name="isInstallment" class="form-checkbox h-4 w-4 text-blue-600 border-gray-300 rounded">
-                                <span class="ml-2 text-sm text-gray-700">É compra parcelada?</span>
-                            </label>
-                        </div>
-                        <div id="installment-fields" class="hidden space-y-4">
-                             <div>
-                                <label class="block text-sm font-medium text-gray-700">Número de Parcelas</label>
-                                <input type="number" name="installments" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="2" min="2">
-                            </div>
+                        <span class="block text-sm font-medium text-gray-700">Tipo</span>
+                        <div class="mt-2 flex gap-4">
+                            <label><input type="radio" name="type" value="receita" ${(!transaction || transaction.type === 'receita') ? 'checked' : ''}> Receita</label>
+                            <label><input type="radio" name="type" value="despesa" ${(transaction?.type === 'despesa') ? 'checked' : ''}> Despesa</label>
                         </div>
                     </div>
-
                     <div>
-                         <span class="block text-sm font-medium text-gray-700">Status</span>
-                         <div class="mt-2 flex gap-4">
-                            <label><input type="radio" name="status" value="pago" ${(txData.status === 'pago' || txData.status === 'recebido') ? 'checked' : ''} required> Lançado</label>
-                            <label><input type="radio" name="status" value="a_pagar" ${(txData.status === 'a pagar' || txData.status === 'a receber') ? 'checked' : ''} required> Pendente</label>
-                         </div>
+                        <span class="block text-sm font-medium text-gray-700">Status</span>
+                        <div class="mt-2 flex gap-4">
+                            <label><input type="radio" name="status" value="a_pagar" ${(!transaction || transaction.status === 'a receber' || transaction.status === 'a pagar') ? 'checked' : ''}> Pendente</label>
+                            <label><input type="radio" name="status" value="pago" ${(transaction?.status === 'recebido' || transaction?.status === 'pago') ? 'checked' : ''}> Concluído</label>
+                        </div>
+                    </div>
+                    <div id="installment-section" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700">Número de Parcelas</label>
+                        <input type="number" name="installments" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="2" min="2" max="60">
+                        <p class="text-sm text-gray-500 mt-1">Apenas para despesas. Criará múltiplas transações mensais.</p>
                     </div>
                     <div class="flex justify-end gap-4 pt-4">
                         <button type="button" class="cancel-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">Cancelar</button>
                         <button type="submit" class="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600">Salvar</button>
                     </div>
-                 </form>`;
+                </form>`;
             openModal(html, () => {
-                const form = document.getElementById('transaction-form');
-                const typeSelector = form.querySelector('#type-selector');
-                const installmentContainer = form.querySelector('#installment-options-container');
-                const isInstallmentCheckbox = form.querySelector('#is-installment-checkbox');
-                const installmentFields = form.querySelector('#installment-fields');
-                const valueLabel = form.querySelector('#value-label');
-                const dateLabel = form.querySelector('#date-label');
-
+                const typeRadios = document.querySelectorAll('input[name="type"]');
+                const installmentSection = document.getElementById('installment-section');
+                const toggleInstallmentSection = () => {
+                    const selectedType = document.querySelector('input[name="type"]:checked').value;
+                    if (selectedType === 'despesa' && !isEditing) {
+                        installmentSection.classList.remove('hidden');
+                    } else {
+                        installmentSection.classList.add('hidden');
+                    }
+                };
+                typeRadios.forEach(radio => radio.addEventListener('change', toggleInstallmentSection));
+                toggleInstallmentSection();
                 document.querySelectorAll('.currency-input').forEach(input => {
                     input.addEventListener('input', () => formatCurrencyInput(input));
                 });
-
-                const toggleInstallmentView = () => {
-                    const type = form.querySelector('input[name="type"]:checked').value;
-                    if (type === 'despesa' && !isEditing) { // No installments when editing
-                        installmentContainer.classList.remove('hidden');
-                    } else {
-                        installmentContainer.classList.add('hidden');
-                        isInstallmentCheckbox.checked = false; 
-                    }
-
-                    if (isInstallmentCheckbox.checked && type === 'despesa') {
-                        installmentFields.classList.remove('hidden');
-                        valueLabel.textContent = 'Valor Total da Compra';
-                        dateLabel.textContent = 'Data da Primeira Parcela';
-                    } else {
-                        installmentFields.classList.add('hidden');
-                        valueLabel.textContent = 'Valor';
-                        dateLabel.textContent = 'Data';
-                    }
-                };
-
-                typeSelector.addEventListener('change', toggleInstallmentView);
-                isInstallmentCheckbox.addEventListener('change', toggleInstallmentView);
-                
-                toggleInstallmentView(); 
-                
-                form.addEventListener('submit', handleSaveTransaction);
+                document.getElementById('transaction-form').addEventListener('submit', handleSaveTransaction);
                 document.querySelector('.cancel-btn').addEventListener('click', closeModal);
             });
         };
-        
+
         const handleSaveTransaction = async (e) => {
             e.preventDefault();
             const form = e.target;
             const formData = new FormData(form);
-            const isInstallment = formData.get('isInstallment') === 'on';
+            const description = formData.get('description');
+            const installments = parseInt(formData.get('installments'));
             
             try {
-                if (isInstallment) {
-                    const description = formData.get('description');
+                if (!formData.get('id') && formData.get('type') === 'despesa' && installments > 1) {
                     const totalValue = parseCurrency(formData.get('value'));
                     const numInstallments = parseInt(formData.get('installments'));
                     const firstDueDate = new Date(formData.get('date') + 'T00:00:00');
@@ -1147,6 +1132,7 @@
 
                     const installmentValue = totalValue / numInstallments;
                     const installmentGroupId = generateUUID();
+                    const batch = writeBatch(db);
 
                     for (let i = 0; i < numInstallments; i++) {
                         const dueDate = new Date(firstDueDate);
@@ -1161,8 +1147,10 @@
                             installmentGroupId: installmentGroupId,
                             isDeleted: false,
                         };
-                         await addDoc(collection(db, `users/${AppState.userId}/transactions`), txData);
+                        const newTxRef = getDocRef('transactions');
+                        batch.set(newTxRef, txData);
                     }
+                    await batch.commit();
                     showToast(`${numInstallments} parcelas criadas com sucesso!`, 'success');
                 } else {
                     const id = formData.get('id');
@@ -1182,9 +1170,9 @@
                         isDeleted: false,
                     };
                     if (isEditing) {
-                        await setDoc(doc(db, `users/${AppState.userId}/transactions`, id), txData);
+                        await setDoc(getDocRef('transactions', id), txData);
                     } else {
-                        await addDoc(collection(db, `users/${AppState.userId}/transactions`), txData);
+                        await addDoc(getCollRef('transactions'), txData);
                     }
                     showToast(`Transação ${isEditing ? 'atualizada' : 'salva'} com sucesso!`);
                 }
@@ -1201,19 +1189,19 @@
             if (tx.shortcutId) {
                 const msg = "Esta transação faz parte de um lançamento fixo. Deseja excluir apenas esta ocorrência?";
                 openConfirmationModal(msg, async () => {
-                    await setDoc(doc(db, `users/${AppState.userId}/transactions`, id), { isDeleted: true }, { merge: true });
+                    await setDoc(getDocRef('transactions', id), { isDeleted: true }, { merge: true });
                     showToast('Transação excluída com sucesso!', 'success');
                 });
             } else if (tx.isInstallment) {
-                 const msg = "Esta transação é uma parcela. Deseja excluir apenas esta parcela ou todas as parcelas futuras desta compra?";
+                 const msg = "Esta transação é uma parcela. Deseja excluir apenas esta parcela?";
                  openConfirmationModal(msg, async () => { 
-                    await setDoc(doc(db, `users/${AppState.userId}/transactions`, id), { isDeleted: true }, { merge: true });
+                    await setDoc(getDocRef('transactions', id), { isDeleted: true }, { merge: true });
                     showToast('Parcela excluída com sucesso!', 'success');
                 });
             } else {
                 const msg = "Tem certeza que deseja excluir esta transação? Esta ação é irreversível.";
                 openConfirmationModal(msg, async () => {
-                    await deleteDoc(doc(db, `users/${AppState.userId}/transactions`, id));
+                    await deleteDoc(getDocRef('transactions', id));
                     showToast('Transação excluída com sucesso!', 'success');
                 });
             }
@@ -1229,7 +1217,7 @@
                 newStatus = tx.status === 'pago' ? 'a pagar' : 'pago';
             }
             try {
-                await setDoc(doc(db, `users/${AppState.userId}/transactions`, id), { status: newStatus }, { merge: true });
+                await setDoc(getDocRef('transactions', id), { status: newStatus }, { merge: true });
                 showToast('Status da transação atualizado!', 'success');
             } catch (error) {
                  console.error("Error updating status: ", error);
@@ -1279,17 +1267,17 @@
                 valuePerHead: parseCurrency(formData.get('valuePerHead')),
             };
              try {
-                if (isEditing) {
-                    await setDoc(doc(db, `users/${AppState.userId}/clients`, id), clientData);
-                } else {
-                    await addDoc(collection(db, `users/${AppState.userId}/clients`), clientData);
-                }
-                closeModal();
-                showToast(`Cliente ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
-             } catch(error){
-                console.error("Error saving client:", error);
-                showToast('Erro ao salvar cliente.', 'error');
-             }
+                 if (isEditing) {
+                     await setDoc(getDocRef('clients', id), clientData);
+                 } else {
+                     await addDoc(getCollRef('clients'), clientData);
+                 }
+                 closeModal();
+                 showToast(`Cliente ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
+              } catch(error){
+                  console.error("Error saving client:", error);
+                  showToast('Erro ao salvar cliente.', 'error');
+              }
         };
 
         // -- Abates (Consultoria) --
@@ -1317,13 +1305,13 @@
                         <input type="text" name="revenueDisplacement" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(abate?.revenueDisplacement || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}">
                     </div>
                      <div>
-                        <label class="block text-sm font-medium text-gray-700">Custo com Deslocamento (Opcional)</label>
-                        <input type="text" name="costDisplacement" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(abate?.costDisplacement || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}">
-                    </div>
+                         <label class="block text-sm font-medium text-gray-700">Custo com Deslocamento (Opcional)</label>
+                         <input type="text" name="costDisplacement" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(abate?.costDisplacement || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}">
+                     </div>
                      <div>
-                        <label class="block text-sm font-medium text-gray-700">Custo com Diarista (Opcional)</label>
-                        <input type="text" name="costAssistant" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(abate?.costAssistant || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}">
-                    </div>
+                         <label class="block text-sm font-medium text-gray-700">Custo com Diarista (Opcional)</label>
+                         <input type="text" name="costAssistant" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(abate?.costAssistant || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}">
+                     </div>
                     <div class="flex justify-end gap-4 pt-4">
                         <button type="button" class="cancel-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">Cancelar</button>
                         <button type="submit" class="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600">Salvar</button>
@@ -1354,17 +1342,20 @@
             };
             
             try {
+                let abateId = id;
                 if (isEditing) {
                     const txsToDelete = AppState.transactions.filter(t => t.abateId === id);
-                    for(const tx of txsToDelete){
-                        await deleteDoc(doc(db, `users/${AppState.userId}/transactions`, tx.id));
-                    }
-                    await setDoc(doc(db, `users/${AppState.userId}/abates`, id), abateData);
-                    await createTransactionsForAbate(id, abateData);
+                    const deleteBatch = writeBatch(db);
+                    txsToDelete.forEach(tx => deleteBatch.delete(getDocRef('transactions', tx.id)));
+                    await deleteBatch.commit();
+                    
+                    await setDoc(getDocRef('abates', id), abateData);
                 } else {
-                    const newAbateRef = await addDoc(collection(db, `users/${AppState.userId}/abates`), abateData);
-                    await createTransactionsForAbate(newAbateRef.id, abateData);
+                    const newAbateRef = await addDoc(getCollRef('abates'), abateData);
+                    abateId = newAbateRef.id;
                 }
+                await createTransactionsForAbate(abateId, abateData);
+
                 closeModal();
                 showToast(`Abate ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
             } catch(error) {
@@ -1378,162 +1369,205 @@
             if (!client) return;
             const mainRevenue = (abateData.heads * client.valuePerHead) + abateData.revenueDisplacement;
             
-            const txs = [];
-            txs.push({ abateId: abateId, description: `Abate - ${client.name}`, value: mainRevenue, date: abateData.date, type: 'receita', status: 'a receber' });
-            if (abateData.costDisplacement > 0) txs.push({ abateId: abateId, description: `Custo Deslocamento - ${client.name}`, value: abateData.costDisplacement, date: abateData.date, type: 'despesa', status: 'a pagar' });
-            if (abateData.costAssistant > 0) txs.push({ abateId: abateId, description: `Custo Diarista - ${client.name}`, value: abateData.costAssistant, date: abateData.date, type: 'despesa', status: 'a pagar' });
+            const batch = writeBatch(db);
+            
+            const mainRevenueRef = getDocRef('transactions');
+            batch.set(mainRevenueRef, { abateId, description: `Abate - ${client.name}`, value: mainRevenue, date: abateData.date, type: 'receita', status: 'a receber', isDeleted: false });
 
-            for(const tx of txs){
-                await addDoc(collection(db, `users/${AppState.userId}/transactions`), tx);
+            if (abateData.costDisplacement > 0) {
+                 const costDisplacementRef = getDocRef('transactions');
+                 batch.set(costDisplacementRef, { abateId, description: `Custo Deslocamento - ${client.name}`, value: abateData.costDisplacement, date: abateData.date, type: 'despesa', status: 'a pagar', isDeleted: false });
             }
+            if (abateData.costAssistant > 0) {
+                 const costAssistantRef = getDocRef('transactions');
+                 batch.set(costAssistantRef, { abateId, description: `Custo Diarista - ${client.name}`, value: abateData.costAssistant, date: abateData.date, type: 'despesa', status: 'a pagar', isDeleted: false });
+            }
+            await batch.commit();
         };
 
         const handleDeleteAbate = (id) => {
             const msg = "Excluir este abate também removerá as transações financeiras associadas. Deseja continuar?";
             openConfirmationModal(msg, async () => {
+                const batch = writeBatch(db);
                 const txsToDelete = AppState.transactions.filter(t => t.abateId === id);
-                for(const tx of txsToDelete){
-                    await deleteDoc(doc(db, `users/${AppState.userId}/transactions`, tx.id));
-                }
-                await deleteDoc(doc(db, `users/${AppState.userId}/abates`, id));
-                showToast('Abate e transações vinculadas foram excluídos.', 'success');
+                txsToDelete.forEach(tx => batch.delete(getDocRef('transactions', tx.id)));
+                batch.delete(getDocRef('abates', id));
+                await batch.commit();
+                showToast('Abate e transações associadas excluídos com sucesso!', 'success');
             });
         };
 
         // =================================================================================
         // LÓGICA DE AUTENTICAÇÃO
         // =================================================================================
-        const authContainer = document.getElementById('auth-container');
-        const appContainer = document.getElementById('app-container');
-        const loginForm = document.getElementById('login-form');
-        const authError = document.getElementById('auth-error');
-        const showSignupBtn = document.getElementById('show-signup');
-        const loginBtn = document.getElementById('login-btn');
         
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                // Usuário está logado
-                AppState.userId = user.uid;
-                authContainer.classList.add('hidden');
-                appContainer.classList.remove('hidden');
-                document.getElementById('user-display').textContent = `Logado como: ${user.email}`;
-                initializePeriod();
-                setupFirestoreListeners(user.uid);
-            } else {
-                // Usuário está deslogado
-                AppState.userId = null;
+        const handleLogout = async () => {
+            try {
                 detachFirestoreListeners();
-                authContainer.classList.remove('hidden');
-                appContainer.classList.add('hidden');
+                await signOut(auth);
+                // The onAuthStateChanged listener will handle the UI changes.
+                showToast('Logout realizado com sucesso!', 'success');
+            } catch (error) {
+                console.error('Logout error:', error);
+                showToast('Erro ao fazer logout.', 'error');
             }
-        });
+        };
 
-        loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const email = loginForm.email.value;
-            const password = loginForm.password.value;
-            const isSignup = loginBtn.textContent.trim() === 'Cadastrar';
-
-            authError.textContent = '';
-
-            if (isSignup) {
-                createUserWithEmailAndPassword(auth, email, password)
-                    .catch((error) => {
-                        console.error('Signup error', error);
-                        authError.textContent = 'Erro ao cadastrar. Verifique o e-mail e a senha (mínimo 6 caracteres).';
-                    });
-            } else {
-                signInWithEmailAndPassword(auth, email, password)
-                    .catch((error) => {
-                        console.error('Login error', error);
-                        authError.textContent = 'E-mail ou senha inválidos.';
-                    });
-            }
-        });
-
-        showSignupBtn.addEventListener('click', () => {
-            const isLogin = loginBtn.textContent.trim() === 'Entrar';
-            if (isLogin) {
-                loginBtn.textContent = 'Cadastrar';
-                showSignupBtn.textContent = 'Já tenho uma conta';
-            } else {
-                loginBtn.textContent = 'Entrar';
-                showSignupBtn.textContent = 'Cadastre-se';
-            }
-        });
-
-        document.getElementById('logout-btn').addEventListener('click', () => {
-            signOut(auth);
-        });
+        const resetAppState = () => {
+            AppState.userId = null;
+            AppState.isAuthReady = false;
+            AppState.transactions = [];
+            AppState.shortcuts = [];
+            AppState.clients = [];
+            AppState.abates = [];
+            AppState.currentClientId = null;
+            AppState.listeners = [];
+            document.getElementById('loading-container').classList.remove('hidden');
+            document.getElementById('app-container').classList.add('hidden');
+        };
 
         // =================================================================================
-        // EVENT LISTENERS GLOBAIS
+        // INICIALIZAÇÃO E EVENT LISTENERS
         // =================================================================================
-        document.querySelector('nav').addEventListener('click', (e) => {
-            if (e.target.matches('.tab-item')) {
-                AppState.currentTab = e.target.dataset.tab;
-                AppState.currentClientId = null; 
-                renderAll();
+        const initializeAppFlow = (user) => {
+            AppState.userId = user.uid;
+            AppState.isAuthReady = true;
+            document.getElementById('user-display').textContent = `ID do Usuário: ${user.uid}`;
+            
+            document.getElementById('loading-container').classList.add('hidden');
+            document.getElementById('app-container').classList.remove('hidden');
+
+            initializePeriod();
+            setupFirestoreListeners(user.uid);
+            renderAll();
+        }
+
+        const main = async () => {
+            if (!firebaseConfig) {
+                console.error("Configuração do Firebase não encontrada.");
+                document.getElementById('loading-container').innerHTML = `<p class="text-red-500">Erro: Configuração do Firebase não encontrada.</p>`;
+                return;
             }
-        });
-        
+
+            try {
+                fbApp = initializeApp(firebaseConfig);
+                auth = getAuth(fbApp);
+                db = getFirestore(fbApp);
+                setLogLevel('debug'); // Para logs detalhados no console
+
+                await enableIndexedDbPersistence(db);
+                console.log("Persistência offline ativada.");
+            } catch (err) {
+                if (err.code == 'failed-precondition') {
+                    console.warn('Firebase: A persistência falhou porque múltiplas abas estão abertas.');
+                } else if (err.code == 'unimplemented') {
+                    console.warn('Firebase: A persistência não é suportada neste navegador.');
+                }
+            }
+            
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    // User is signed in.
+                    if (!AppState.isAuthReady) { // Prevent re-initialization on token refresh
+                       initializeAppFlow(user);
+                    }
+                } else {
+                    // User is signed out.
+                    resetAppState();
+                    // Attempt to sign in again.
+                    authenticateUser();
+                }
+            });
+            
+            await authenticateUser();
+        };
+
+        const authenticateUser = async () => {
+            try {
+                 if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Erro na autenticação:", error);
+                document.getElementById('loading-container').innerHTML = `<p class="text-red-500">Erro na autenticação. Por favor, recarregue a página.</p>`;
+            }
+        };
+
+        // --- Adicionar Event Listeners ---
+
+        // Listeners estáticos
+        document.getElementById('logout-btn').addEventListener('click', handleLogout);
         document.getElementById('prev-period').addEventListener('click', () => changePeriod(-1));
         document.getElementById('next-period').addEventListener('click', () => changePeriod(1));
-        
-        document.getElementById('transaction-search').addEventListener('input', (e) => {
-            renderTransactionList(e.target.value);
+        document.getElementById('transaction-search').addEventListener('input', renderTransactionList);
+
+        // Navegação por abas
+        document.querySelectorAll('.tab-item').forEach(tab => {
+            tab.addEventListener('click', () => {
+                AppState.currentTab = tab.dataset.tab;
+                renderAll();
+            });
         });
-        
-        document.getElementById('app-container').addEventListener('click', (e) => {
+
+        // Delegação de eventos para conteúdo dinâmico
+        document.addEventListener('click', (e) => {
             const target = e.target;
-            const actionTarget = target.closest('[data-id], [data-type], [data-client-id], button, .shortcut-card, .client-card');
-            if (!actionTarget) return;
             
-            if (target.closest('.new-shortcut-btn')) openShortcutModal(actionTarget.dataset.type);
-            if (target.closest('.shortcut-card .edit-shortcut-btn')) {
+            // Atalhos
+            if (target.closest('.new-shortcut-btn')) {
+                const type = target.closest('.new-shortcut-btn').dataset.type;
+                openShortcutModal(type);
+            }
+            if (target.closest('.shortcut-card') && !target.closest('.edit-shortcut-btn') && !target.closest('.delete-shortcut-btn')) {
+                const shortcutId = target.closest('.shortcut-card').dataset.id;
+                handleShortcutClick(shortcutId);
+            }
+            if (target.closest('.edit-shortcut-btn')) {
                 e.stopPropagation();
                 const shortcutId = target.closest('.shortcut-card').dataset.id;
-                openShortcutModal(null, shortcutId);
+                const shortcut = AppState.shortcuts.find(s => s.id === shortcutId);
+                if (shortcut) openShortcutModal(shortcut.type, shortcutId);
             }
-            if (target.closest('.shortcut-card .delete-shortcut-btn')) {
-                e.stopPropagation();
+            if (target.closest('.delete-shortcut-btn')) {
+                 e.stopPropagation();
                 const shortcutId = target.closest('.shortcut-card').dataset.id;
                 handleDeleteShortcutPermanently(shortcutId);
             }
-            if (target.closest('.shortcut-card') && !target.closest('.edit-shortcut-btn') && !target.closest('.delete-shortcut-btn')) {
-                handleShortcutClick(target.closest('.shortcut-card').dataset.id);
-            }
             
-            if(target.closest('#add-generic-transaction-btn')) openTransactionModal();
-            if (target.matches('.status-checkbox')) handleToggleTransactionStatus(target.dataset.transactionId);
-            if (target.closest('.edit-btn')) {
-                const txId = target.closest('[data-id]').dataset.id;
-                const tx = AppState.transactions.find(t => t.id === txId);
-                if (tx) openTransactionModal(tx);
+            // Transações
+            if (target.closest('#add-generic-transaction-btn')) openTransactionModal();
+            
+            // Clientes
+            const consultoriaContent = document.getElementById('consultoria-content');
+            if (consultoriaContent.contains(target)) {
+                 if (target.closest('#add-client-btn')) openClientModal();
+                 if (target.closest('.client-card') && !target.closest('.edit-client-btn')) {
+                     AppState.currentClientId = target.closest('.client-card').dataset.id;
+                     renderConsultoria();
+                 }
+                 if (target.closest('.edit-client-btn')) {
+                     const clientId = target.closest('[data-id]').dataset.id;
+                     openClientModal(clientId);
+                 }
+                 if (target.closest('#back-to-clients-btn')) {
+                     AppState.currentClientId = null;
+                     renderConsultoria();
+                 }
+                 if (target.closest('#add-abate-btn')) openAbateModal(target.closest('#add-abate-btn').dataset.clientId);
+                 if (target.closest('.edit-abate-btn')) {
+                     const abateId = target.closest('[data-id]').dataset.id;
+                     const abate = AppState.abates.find(a => a.id === abateId);
+                     if(abate) openAbateModal(abate.clientId, abateId);
+                 }
+                 if (target.closest('.delete-abate-btn')) handleDeleteAbate(target.closest('[data-id]').dataset.id);
             }
-            if (target.closest('.delete-btn')) handleDeleteTransaction(target.closest('[data-id]').dataset.id);
-
-            if (target.closest('#add-client-btn')) openClientModal();
-            if (target.closest('.client-card .edit-client-btn')) {
-                 e.stopPropagation();
-                 openClientModal(target.closest('.client-card').dataset.id);
-            }
-            if (target.closest('.client-card') && !target.closest('.edit-client-btn')) {
-                AppState.currentClientId = target.closest('.client-card').dataset.id;
-                renderConsultoria();
-            }
-            if (target.closest('#back-to-clients-btn')) {
-                AppState.currentClientId = null;
-                renderConsultoria();
-            }
-            if (target.closest('#add-abate-btn')) openAbateModal(target.closest('#add-abate-btn').dataset.clientId);
-            if (target.closest('.edit-abate-btn')) {
-                const abateId = target.closest('[data-id]').dataset.id;
-                const abate = AppState.abates.find(a => a.id === abateId);
-                if(abate) openAbateModal(abate.clientId, abateId);
-            }
-            if (target.closest('.delete-abate-btn')) handleDeleteAbate(target.closest('[data-id]').dataset.id);
         });
+
+        // Iniciar a aplicação
+        main();
+
     </script>
 </body>
 </html>
