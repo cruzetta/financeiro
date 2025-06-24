@@ -944,6 +944,12 @@
             const id = formData.get('id');
             const isEditing = !!id;
             
+            // Desabilitar o botão de salvar para evitar múltiplos cliques
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.textContent;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Salvando...';
+            
             const newShortcutData = {
                 name: formData.get('name'),
                 value: parseCurrency(formData.get('value')),
@@ -954,6 +960,8 @@
             };
 
             try {
+                console.log('Iniciando salvamento do atalho:', newShortcutData);
+                
                 // Handle conversion from fixed to variable first
                 if (isEditing) {
                     const oldShortcut = AppState.shortcuts.find(s => s.id === id);
@@ -968,7 +976,9 @@
                                 closeModal();
                             } catch (error) {
                                 console.error("Erro ao converter atalho:", error);
-                                showToast('Erro ao converter o atalho.', 'error');
+                                showToast('Erro ao converter o atalho: ' + error.message, 'error');
+                                submitBtn.disabled = false;
+                                submitBtn.textContent = originalText;
                             }
                         });
                         return; 
@@ -977,83 +987,119 @@
                 
                 // Standard Save/Update Logic
                 let shortcutId = id;
+                console.log('Salvando atalho no Firebase...');
+                
                 if (isEditing) {
                     await setDoc(doc(db, `users/${AppState.userId}/shortcuts`, shortcutId), newShortcutData);
+                    console.log('Atalho atualizado no Firebase');
                 } else {
                     const docRef = await addDoc(collection(db, `users/${AppState.userId}/shortcuts`), newShortcutData);
                     shortcutId = docRef.id;
+                    console.log('Novo atalho criado no Firebase com ID:', shortcutId);
                 }
 
-                // CORREÇÃO: Criar transações futuras para atalhos fixos
+                // Criar transações futuras para atalhos fixos
                 if (newShortcutData.frequency === 'fixo') {
-                    console.log('Criando transações futuras para atalho fixo...');
-                    const referenceDate = getPeriodBounds(AppState.currentPeriodStartDate).start;
-                    
-                    // Primeiro, deletar transações futuras existentes se estiver editando
-                    if (isEditing) {
-                        await deleteFutureTransactionsForShortcut(shortcutId, referenceDate);
+                    console.log('Atalho é fixo, criando transações futuras...');
+                    try {
+                        const referenceDate = getPeriodBounds(AppState.currentPeriodStartDate).start;
+                        
+                        // Primeiro, deletar transações futuras existentes se estiver editando
+                        if (isEditing) {
+                            console.log('Deletando transações futuras existentes...');
+                            await deleteFutureTransactionsForShortcut(shortcutId, referenceDate);
+                        }
+                        
+                        // Criar novas transações futuras
+                        console.log('Criando novas transações futuras...');
+                        await generateAndCommitFutureTransactions(shortcutId, newShortcutData, referenceDate);
+                        console.log('Transações futuras criadas com sucesso!');
+                        
+                        showToast(`Atalho ${isEditing ? 'atualizado' : 'salvo'} com sucesso! ${60} transações futuras criadas.`, 'success');
+                    } catch (transactionError) {
+                        console.error('Erro ao criar transações futuras:', transactionError);
+                        // Mesmo com erro nas transações, o atalho foi salvo, então fechamos o modal
+                        showToast(`Atalho ${isEditing ? 'atualizado' : 'salvo'}, mas houve erro ao criar transações futuras: ${transactionError.message}`, 'error');
                     }
-                    
-                    // Criar novas transações futuras
-                    await generateAndCommitFutureTransactions(shortcutId, newShortcutData, referenceDate);
-                    console.log('Transações futuras criadas com sucesso!');
+                } else {
+                    showToast(`Atalho ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`, 'success');
                 }
                 
-                showToast(`Atalho ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
+                // Sempre fechar o modal após salvar o atalho
+                console.log('Fechando modal...');
                 closeModal();
 
             } catch (error) {
                 console.error("Erro ao salvar atalho:", error);
                 showToast('Erro ao salvar o atalho: ' + error.message, 'error');
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalText;
             }
         };
         
         const deleteFutureTransactionsForShortcut = async (shortcutId, referenceDate) => {
             console.log('Deletando transações futuras para o atalho:', shortcutId);
-            const batch = writeBatch(db);
-            const transactionsToDelete = AppState.transactions.filter(t => {
-                const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
-                return t.shortcutId === shortcutId && tDate >= referenceDate && (t.status !== 'pago' && t.status !== 'recebido');
-            });
-            
-            console.log('Transações a deletar:', transactionsToDelete.length);
-            transactionsToDelete.forEach(tx => batch.delete(doc(db, `users/${AppState.userId}/transactions`, tx.id)));
-            
-            if (transactionsToDelete.length > 0) {
-                await batch.commit();
-                console.log('Transações futuras deletadas com sucesso');
+            try {
+                const batch = writeBatch(db);
+                const transactionsToDelete = AppState.transactions.filter(t => {
+                    const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
+                    return t.shortcutId === shortcutId && tDate >= referenceDate && (t.status !== 'pago' && t.status !== 'recebido');
+                });
+                
+                console.log('Transações a deletar:', transactionsToDelete.length);
+                transactionsToDelete.forEach(tx => batch.delete(doc(db, `users/${AppState.userId}/transactions`, tx.id)));
+                
+                if (transactionsToDelete.length > 0) {
+                    await batch.commit();
+                    console.log('Transações futuras deletadas com sucesso');
+                }
+            } catch (error) {
+                console.error('Erro ao deletar transações futuras:', error);
+                throw error;
             }
         };
 
         const generateAndCommitFutureTransactions = async (shortcutId, shortcutData, referenceDate) => {
             console.log('Gerando transações futuras para:', shortcutData.name);
-            const periodsToGenerate = 60;
-            const batch = writeBatch(db);
-            const dueDay = Math.max(1, Math.min(28, shortcutData.dueDay || 11)); // Garante que o dia está entre 1 e 28
-            
-            let transactionsCreated = 0;
-            
-            for (let i = 0; i < periodsToGenerate; i++) {
-                const transactionDate = new Date(referenceDate);
-                transactionDate.setUTCMonth(transactionDate.getUTCMonth() + i);
-                transactionDate.setUTCDate(dueDay);
+            try {
+                const periodsToGenerate = 60;
+                const dueDay = Math.max(1, Math.min(28, shortcutData.dueDay || 11));
                 
-                const newTxRef = doc(collection(db, `users/${AppState.userId}/transactions`));
-                batch.set(newTxRef, {
-                    shortcutId,
-                    description: shortcutData.name,
-                    value: shortcutData.value,
-                    date: transactionDate,
-                    type: shortcutData.type,
-                    status: shortcutData.type === 'receita' ? 'a receber' : 'a pagar',
-                    isDeleted: false,
-                });
-                transactionsCreated++;
+                // Criar transações em lotes menores para evitar problemas
+                const batchSize = 20;
+                let transactionsCreated = 0;
+                
+                for (let batchStart = 0; batchStart < periodsToGenerate; batchStart += batchSize) {
+                    const batch = writeBatch(db);
+                    const batchEnd = Math.min(batchStart + batchSize, periodsToGenerate);
+                    
+                    for (let i = batchStart; i < batchEnd; i++) {
+                        const transactionDate = new Date(referenceDate);
+                        transactionDate.setUTCMonth(transactionDate.getUTCMonth() + i);
+                        transactionDate.setUTCDate(dueDay);
+                        
+                        const newTxRef = doc(collection(db, `users/${AppState.userId}/transactions`));
+                        batch.set(newTxRef, {
+                            shortcutId,
+                            description: shortcutData.name,
+                            value: shortcutData.value,
+                            date: transactionDate,
+                            type: shortcutData.type,
+                            status: shortcutData.type === 'receita' ? 'a receber' : 'a pagar',
+                            isDeleted: false,
+                        });
+                        transactionsCreated++;
+                    }
+                    
+                    console.log(`Commitando lote ${Math.floor(batchStart/batchSize) + 1} com ${batchEnd - batchStart} transações...`);
+                    await batch.commit();
+                }
+                
+                console.log(`Total de ${transactionsCreated} transações futuras criadas com sucesso!`);
+            } catch (error) {
+                console.error('Erro ao gerar transações futuras:', error);
+                throw error;
             }
-            
-            console.log(`Criando ${transactionsCreated} transações futuras...`);
-            await batch.commit();
-            console.log('Batch commit realizado com sucesso!');
         };
 
         const handleShortcutClick = (shortcutId) => {
