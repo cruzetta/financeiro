@@ -54,14 +54,47 @@
     </style>
 </head>
 <body class="text-gray-800">
-
-    <!-- Container Principal -->
-    <div id="app" class="max-w-7xl mx-auto p-4 md:p-6">
+    <!-- Tela de Autenticação -->
+    <div id="auth-container" class="flex items-center justify-center min-h-screen bg-gray-100">
+        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+            <div>
+                <h2 class="text-2xl font-bold text-center text-gray-800">Centro de Comando Financeiro</h2>
+                <p class="mt-2 text-sm text-center text-gray-600">Acesse sua conta para continuar</p>
+            </div>
+            <form id="login-form" class="space-y-6">
+                <div class="space-y-2">
+                    <label for="email" class="text-sm font-medium">Email</label>
+                    <input type="email" id="email" name="email" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="space-y-2">
+                    <label for="password" class="text-sm font-medium">Senha</label>
+                    <input type="password" id="password" name="password" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div id="auth-error" class="text-sm text-red-600"></div>
+                <div>
+                    <button type="submit" id="login-btn" class="w-full px-4 py-2 font-semibold text-white bg-blue-500 rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Entrar
+                    </button>
+                </div>
+            </form>
+            <div class="text-sm text-center text-gray-600">
+                <p>Não tem uma conta? <button id="show-signup" class="font-medium text-blue-500 hover:underline">Cadastre-se</button></p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Container Principal da Aplicação -->
+    <div id="app-container" class="hidden max-w-7xl mx-auto p-4 md:p-6">
         
         <!-- Cabeçalho -->
-        <header class="mb-6">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Centro de Comando Financeiro</h1>
-            <p class="text-gray-500">Sua vida financeira, organizada e sob controle.</p>
+        <header class="mb-6 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Centro de Comando Financeiro</h1>
+                <p id="user-display" class="text-gray-500"></p>
+            </div>
+            <button id="logout-btn" class="bg-red-500 text-white font-semibold px-4 py-2 rounded-lg shadow hover:bg-red-600 flex items-center gap-2">
+                <i data-lucide="log-out" class="w-5 h-5"></i> Sair
+            </button>
         </header>
 
         <!-- Navegação por Abas -->
@@ -292,9 +325,46 @@
         </tr>
     </template>
 
+    <!-- Firebase SDKs -->
     <script type="module">
-        // Inicia o Lucide Icons
-        lucide.createIcons();
+        // Importar as funções necessárias dos SDKs
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+        import { 
+            getAuth, 
+            onAuthStateChanged,
+            createUserWithEmailAndPassword,
+            signInWithEmailAndPassword,
+            signOut 
+        } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+        import { 
+            getFirestore,
+            collection,
+            doc,
+            addDoc,
+            setDoc,
+            deleteDoc,
+            onSnapshot,
+            query,
+            where
+        } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+        // Configuração do Firebase que você forneceu
+        // ATENÇÃO: É uma boa prática usar variáveis de ambiente para chaves de API,
+        // mas para este exemplo, usaremos a configuração diretamente.
+        const firebaseConfig = {
+          apiKey: "AIzaSyBxAjPzd-OoQU_CPeMawa6QtSLcwbY3J4A",
+          authDomain: "financeiro-4fd9a.firebaseapp.com",
+          projectId: "financeiro-4fd9a",
+          storageBucket: "financeiro-4fd9a.firebasestorage.app",
+          messagingSenderId: "82912149153",
+          appId: "1:82912149153:web:293977f1d12145eebb3ae0",
+          measurementId: "G-GL40EGD9YM"
+        };
+
+        // Inicializar Firebase
+        const fbApp = initializeApp(firebaseConfig);
+        const auth = getAuth(fbApp);
+        const db = getFirestore(fbApp);
 
         // =================================================================================
         // ESTADO DA APLICAÇÃO E CONFIGURAÇÕES
@@ -306,14 +376,12 @@
             shortcuts: [],
             clients: [],
             abates: [],
-            currentClientId: null, // Para a tela de detalhes do cliente
+            currentClientId: null,
+            userId: null, // ID do usuário logado
+            listeners: [], // Armazena os listeners do Firestore para desligá-los no logout
         };
 
         const LOCAL_STORAGE_KEYS = {
-            transactions: 'finance_app_transactions_v2',
-            shortcuts: 'finance_app_shortcuts_v2',
-            clients: 'finance_app_clients_v2',
-            abates: 'finance_app_abates_v2',
             currentPeriod: 'finance_app_currentPeriod_v1',
         };
         
@@ -346,7 +414,8 @@
 
 
         const formatDate = (date) => {
-            return new Date(date).toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+            const d = date.toDate ? date.toDate() : new Date(date); // Handle Firebase Timestamps
+            return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
         };
         
         const parseCurrency = (stringValue) => {
@@ -373,47 +442,34 @@
                 toast.addEventListener('transitionend', () => toast.remove());
             }, 3000);
         };
-
+        
         // =================================================================================
-        // LÓGICA DE DADOS (LOCALSTORAGE)
+        // LÓGICA DE DADOS (FIRESTORE)
         // =================================================================================
-
-        const saveData = () => {
-            try {
-                localStorage.setItem(LOCAL_STORAGE_KEYS.transactions, JSON.stringify(AppState.transactions));
-                localStorage.setItem(LOCAL_STORAGE_KEYS.shortcuts, JSON.stringify(AppState.shortcuts));
-                localStorage.setItem(LOCAL_STORAGE_KEYS.clients, JSON.stringify(AppState.clients));
-                localStorage.setItem(LOCAL_STORAGE_KEYS.abates, JSON.stringify(AppState.abates));
-                if(AppState.currentPeriodStartDate){
-                    localStorage.setItem(LOCAL_STORAGE_KEYS.currentPeriod, AppState.currentPeriodStartDate.toISOString());
-                }
-            } catch (error) {
-                console.error("Erro ao salvar dados no localStorage:", error);
-                showToast("Erro ao salvar os dados.", "error");
-            }
+        
+        const setupFirestoreListeners = (userId) => {
+            const collections = ['transactions', 'shortcuts', 'clients', 'abates'];
+            
+            collections.forEach(collName => {
+                const q = query(collection(db, `users/${userId}/${collName}`));
+                const unsubscribe = onSnapshot(q, (querySnapshot) => {
+                    const data = [];
+                    querySnapshot.forEach((doc) => {
+                        data.push({ id: doc.id, ...doc.data() });
+                    });
+                    AppState[collName] = data;
+                    renderAll(); 
+                }, (error) => {
+                    console.error(`Error listening to ${collName}: `, error);
+                    showToast(`Erro ao carregar ${collName}.`, 'error');
+                });
+                AppState.listeners.push(unsubscribe);
+            });
         };
 
-        const loadData = () => {
-            try {
-                AppState.transactions = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.transactions)) || [];
-                AppState.shortcuts = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.shortcuts)) || [];
-                AppState.clients = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.clients)) || [];
-                AppState.abates = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEYS.abates)) || [];
-                const savedPeriod = localStorage.getItem(LOCAL_STORAGE_KEYS.currentPeriod);
-                if (savedPeriod) {
-                    AppState.currentPeriodStartDate = new Date(savedPeriod);
-                }
-
-            } catch (error) {
-                console.error("Erro ao carregar dados do localStorage:", error);
-                // Reseta os dados se estiverem corrompidos
-                AppState.transactions = [];
-                AppState.shortcuts = [];
-                AppState.clients = [];
-                AppState.abates = [];
-                AppState.currentPeriodStartDate = null;
-                showToast("Dados corrompidos, iniciando com dados limpos.", "error");
-            }
+        const detachFirestoreListeners = () => {
+            AppState.listeners.forEach(unsubscribe => unsubscribe());
+            AppState.listeners = [];
         };
 
         // =================================================================================
@@ -421,12 +477,17 @@
         // =================================================================================
 
         const initializePeriod = () => {
+            const savedPeriod = localStorage.getItem(LOCAL_STORAGE_KEYS.currentPeriod);
+            if(savedPeriod){
+                AppState.currentPeriodStartDate = new Date(savedPeriod);
+                return;
+            }
+
             const today = new Date();
             const currentDay = today.getDate();
             const currentMonth = today.getMonth();
             const currentYear = today.getFullYear();
 
-            // Se o dia for 10 ou menos, o período começou no mês passado
             if (currentDay <= 10) {
                 AppState.currentPeriodStartDate = new Date(Date.UTC(currentYear, currentMonth - 1, 11));
             } else {
@@ -446,6 +507,7 @@
             const newStartDate = new Date(AppState.currentPeriodStartDate);
             newStartDate.setUTCMonth(newStartDate.getUTCMonth() + direction);
             AppState.currentPeriodStartDate = newStartDate;
+            localStorage.setItem(LOCAL_STORAGE_KEYS.currentPeriod, newStartDate.toISOString());
             renderAll();
         };
 
@@ -519,11 +581,13 @@
         // =================================================================================
 
         const renderAll = () => {
-            saveData();
+            // A chamada de salvar dados é removida daqui, pois o Firestore salva em tempo real.
             renderTabs();
-            switch (AppState.currentTab) {
-                case 'dashboard': renderDashboard(); break;
-                case 'consultoria': renderConsultoria(); break;
+            if (AppState.userId) {
+                switch (AppState.currentTab) {
+                    case 'dashboard': renderDashboard(); break;
+                    case 'consultoria': renderConsultoria(); break;
+                }
             }
             lucide.createIcons();
         };
@@ -553,6 +617,7 @@
         };
 
         const renderPeriodDisplay = () => {
+            if (!AppState.currentPeriodStartDate) return;
             const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
             const options = { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' };
             const formattedStart = start.toLocaleDateString('pt-BR', options).replace(/\./g, '').replace(' de ', '/');
@@ -561,9 +626,10 @@
         };
 
         const renderKPIs = () => {
+            if (!AppState.currentPeriodStartDate) return;
             const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
             const transactionsInPeriod = AppState.transactions.filter(t => {
-                const tDate = new Date(t.date);
+                const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
                 return !t.isDeleted && tDate >= start && tDate <= end;
             });
 
@@ -602,6 +668,7 @@
             receitasContainer.innerHTML = '';
             despesasContainer.innerHTML = '';
             
+            if(!AppState.currentPeriodStartDate) return;
             const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
             const template = document.getElementById('shortcut-card-template');
 
@@ -613,12 +680,13 @@
                 const totalEl = card.querySelector('.shortcut-total');
 
                 if (shortcut.frequency === 'variavel') {
-                    const monthlyTxs = AppState.transactions.filter(t => 
-                        !t.isDeleted && 
-                        t.shortcutId === shortcut.id &&
-                        new Date(t.date) >= start &&
-                        new Date(t.date) <= end
-                    );
+                    const monthlyTxs = AppState.transactions.filter(t => {
+                        const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
+                        return !t.isDeleted && 
+                               t.shortcutId === shortcut.id &&
+                               tDate >= start &&
+                               tDate <= end
+                    });
                     const totalValue = monthlyTxs.reduce((sum, t) => sum + t.value, 0);
                     if (totalValue > 0) {
                         totalEl.textContent = formatCurrency(totalValue);
@@ -652,15 +720,16 @@
         const renderTransactionList = (filterText = '') => {
             const container = document.getElementById('transaction-list');
             container.innerHTML = '';
+            if(!AppState.currentPeriodStartDate) return;
             const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
             const filteredTransactions = AppState.transactions
                 .filter(t => {
                     if (t.isDeleted) return false;
-                    const tDate = new Date(t.date);
+                    const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
                     return tDate >= start && tDate <= end &&
                            t.description.toLowerCase().includes(filterText.toLowerCase());
                 })
-                .sort((a, b) => new Date(b.date) - new Date(a.date));
+                .sort((a, b) => (b.date.toDate ? b.date.toDate() : new Date(b.date)) - (a.date.toDate ? a.date.toDate() : new Date(a.date)));
             if (filteredTransactions.length === 0) {
                 container.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-8">Nenhuma transação neste período.</td></tr>`;
                 return;
@@ -741,10 +810,11 @@
         const renderAbateList = (clientId) => {
             const listContainer = document.getElementById('abate-list');
             listContainer.innerHTML = '';
+            if(!AppState.currentPeriodStartDate) return;
             const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
             const abatesInPeriod = AppState.abates.filter(a => {
                 if (a.isDeleted) return false;
-                const aDate = new Date(a.date);
+                const aDate = a.date.toDate ? a.date.toDate() : new Date(a.date);
                 return a.clientId === clientId && aDate >= start && aDate <= end;
             });
             if (abatesInPeriod.length === 0) {
@@ -774,7 +844,7 @@
         // =================================================================================
 
         // -- Atalhos --
-        const openShortcutModal = (shortcutType, shortcutId = null) => {
+        const openShortcutModal = async (shortcutType, shortcutId = null) => {
             const isEditing = !!shortcutId;
             const shortcut = isEditing ? AppState.shortcuts.find(s => s.id === shortcutId) : null;
             const title = isEditing ? 'Editar Atalho' : `Novo Atalho de ${shortcutType === 'receita' ? 'Receita' : 'Despesa'}`;
@@ -824,7 +894,7 @@
             });
         };
 
-        const handleSaveShortcut = (e) => {
+        const handleSaveShortcut = async (e) => {
             e.preventDefault();
             const form = e.target;
             const formData = new FormData(form);
@@ -832,7 +902,6 @@
             const isEditing = !!id;
             const oldShortcut = isEditing ? { ...AppState.shortcuts.find(s => s.id === id) } : null;
             const newShortcutData = {
-                id: id || generateUUID(),
                 name: formData.get('name'),
                 value: parseCurrency(formData.get('value')),
                 type: formData.get('type'),
@@ -841,74 +910,84 @@
             };
             const referenceDate = getPeriodBounds(AppState.currentPeriodStartDate).start;
 
-            const performSave = () => {
-                if (isEditing) {
-                    const index = AppState.shortcuts.findIndex(s => s.id === id);
-                    AppState.shortcuts[index] = newShortcutData;
-                } else {
-                    AppState.shortcuts.push(newShortcutData);
-                }
-                if (newShortcutData.frequency === 'fixo') {
-                    generateFutureTransactionsForShortcut(newShortcutData, AppState.currentPeriodStartDate);
-                }
-                closeModal();
-                showToast(`Atalho ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
-                renderAll();
-            };
+            const performSave = async () => {
+                try {
+                    if (isEditing) {
+                        const docRef = doc(db, `users/${AppState.userId}/shortcuts`, id);
+                        await setDoc(docRef, newShortcutData);
+                    } else {
+                        await addDoc(collection(db, `users/${AppState.userId}/shortcuts`), newShortcutData);
+                    }
 
+                    if (newShortcutData.frequency === 'fixo') {
+                        await generateFutureTransactionsForShortcut(isEditing ? id : null, newShortcutData);
+                    }
+                    closeModal();
+                    showToast(`Atalho ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
+                } catch (error) {
+                    console.error("Error saving shortcut: ", error);
+                    showToast('Erro ao salvar o atalho.', 'error');
+                }
+            };
+            
             if (isEditing) {
                 const isConvertingToVariable = oldShortcut.frequency === 'fixo' && newShortcutData.frequency === 'variavel';
                 const isChangingFixedValue = oldShortcut.frequency === 'fixo' && newShortcutData.frequency === 'fixo' && oldShortcut.value !== newShortcutData.value;
-
                 if (isConvertingToVariable) {
                     const msg = "Ao converter este atalho para 'Variável', todas as transações futuras pendentes (a partir deste período) serão permanentemente excluídas. Deseja continuar?";
-                    openConfirmationModal(msg, () => {
-                        deleteFutureTransactionsForShortcut(id, referenceDate);
-                        performSave();
+                    openConfirmationModal(msg, async () => {
+                        await deleteFutureTransactionsForShortcut(id, referenceDate);
+                        await performSave();
                     });
                     return;
                 }
                 if (isChangingFixedValue) {
                     const msg = "Ao alterar o valor de um atalho fixo, as transações futuras (a partir deste período) serão atualizadas. Transações passadas ou já pagas/recebidas permanecerão inalteradas. Deseja continuar?";
-                    openConfirmationModal(msg, () => {
-                        deleteFutureTransactionsForShortcut(id, referenceDate);
-                        performSave();
+                    openConfirmationModal(msg, async () => {
+                        await deleteFutureTransactionsForShortcut(id, referenceDate);
+                        await performSave();
                     });
                     return;
                 }
             }
-            performSave();
+            await performSave();
         };
         
-        const deleteFutureTransactionsForShortcut = (shortcutId, referenceDate) => {
-             AppState.transactions = AppState.transactions.filter(t => {
-                const tDate = new Date(t.date);
-                return t.shortcutId !== shortcutId || tDate < referenceDate || (tDate >= referenceDate && (t.status === 'pago' || t.status === 'recebido'));
+        const deleteFutureTransactionsForShortcut = async (shortcutId, referenceDate) => {
+             const transactionsToDelete = AppState.transactions.filter(t => {
+                const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
+                return t.shortcutId === shortcutId && tDate >= referenceDate && (t.status !== 'pago' && t.status !== 'recebido');
             });
+
+            for(const tx of transactionsToDelete){
+                await deleteDoc(doc(db, `users/${AppState.userId}/transactions`, tx.id));
+            }
         };
 
-        const generateFutureTransactionsForShortcut = (shortcut, referencePeriodStartDate) => {
-             const periodsToGenerate = 60; 
-             for (let i = 0; i < periodsToGenerate; i++) {
-                 const periodStart = new Date(referencePeriodStartDate);
-                 periodStart.setUTCMonth(periodStart.getUTCMonth() + i);
-                 const transactionDate = new Date(periodStart);
-                 const exists = AppState.transactions.some(t =>
-                    t.shortcutId === shortcut.id && new Date(t.date).getTime() === transactionDate.getTime()
-                 );
+        const generateFutureTransactionsForShortcut = async (shortcutId, shortcutData) => {
+            const newId = shortcutId || (await addDoc(collection(db, `users/${AppState.userId}/shortcuts`), shortcutData)).id;
+            const periodsToGenerate = 60; 
+            for (let i = 0; i < periodsToGenerate; i++) {
+                const periodStart = new Date(AppState.currentPeriodStartDate);
+                periodStart.setUTCMonth(periodStart.getUTCMonth() + i);
+                const transactionDate = new Date(periodStart);
+                 const exists = AppState.transactions.some(t => {
+                    const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
+                    return t.shortcutId === newId && tDate.getTime() === transactionDate.getTime();
+                });
+                
                  if (!exists) {
-                    AppState.transactions.push({
-                        id: generateUUID(),
-                        shortcutId: shortcut.id,
-                        description: shortcut.name,
-                        value: shortcut.value,
-                        date: transactionDate.toISOString(),
-                        type: shortcut.type,
-                        status: shortcut.type === 'receita' ? 'a receber' : 'a pagar',
+                    await addDoc(collection(db, `users/${AppState.userId}/transactions`), {
+                        shortcutId: newId,
+                        description: shortcutData.name,
+                        value: shortcutData.value,
+                        date: transactionDate,
+                        type: shortcutData.type,
+                        status: shortcutData.type === 'receita' ? 'a receber' : 'a pagar',
                         isDeleted: false,
                     });
                  }
-             }
+            }
         };
 
         const handleShortcutClick = (shortcutId) => {
@@ -917,7 +996,7 @@
             if (shortcut.frequency === 'variavel') {
                 openTransactionModal({
                     description: shortcut.name,
-                    value: 0, // Start with 0 for variable transactions
+                    value: 0,
                     type: shortcut.type,
                     date: new Date().toISOString().split('T')[0],
                     shortcutId: shortcut.id
@@ -929,18 +1008,22 @@
 
         const handleDeleteShortcutPermanently = (shortcutId) => {
             const msg = "Tem certeza que deseja excluir permanentemente este atalho e TODAS as suas transações futuras (a partir deste período)? Transações passadas não serão afetadas. Esta ação é irreversível.";
-            openConfirmationModal(msg, () => {
+            openConfirmationModal(msg, async () => {
                 const referenceDate = getPeriodBounds(AppState.currentPeriodStartDate).start;
-
-                AppState.transactions = AppState.transactions.filter(t => {
-                    const tDate = new Date(t.date);
-                    return t.shortcutId !== shortcutId || tDate < referenceDate;
-                });
                 
-                AppState.shortcuts = AppState.shortcuts.filter(s => s.id !== shortcutId);
+                // Delete future transactions
+                const txsToDelete = AppState.transactions.filter(t => {
+                    const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
+                    return t.shortcutId === shortcutId && tDate >= referenceDate;
+                });
+                for(const tx of txsToDelete){
+                    await deleteDoc(doc(db, `users/${AppState.userId}/transactions`, tx.id));
+                }
+                
+                // Delete the shortcut itself
+                await deleteDoc(doc(db, `users/${AppState.userId}/shortcuts`, shortcutId));
 
                 showToast('Atalho e transações futuras excluídos.', 'success');
-                renderAll();
             });
         };
 
@@ -964,7 +1047,7 @@
                     </div>
                     <div>
                         <label id="date-label" class="block text-sm font-medium text-gray-700">Data</label>
-                        <input type="date" name="date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(txData.date || today).split('T')[0]}" required>
+                        <input type="date" name="date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(txData.date ? (txData.date.toDate ? txData.date.toDate() : new Date(txData.date)).toISOString().split('T')[0] : today)}" required>
                     </div>
                     <div>
                          <span class="block text-sm font-medium text-gray-700">Tipo</span>
@@ -974,7 +1057,6 @@
                          </div>
                     </div>
 
-                    <!-- Campos de Parcelamento -->
                     <div id="installment-options-container" class="hidden space-y-4">
                         <div>
                             <label class="flex items-center">
@@ -1017,7 +1099,7 @@
 
                 const toggleInstallmentView = () => {
                     const type = form.querySelector('input[name="type"]:checked').value;
-                    if (type === 'despesa') {
+                    if (type === 'despesa' && !isEditing) { // No installments when editing
                         installmentContainer.classList.remove('hidden');
                     } else {
                         installmentContainer.classList.add('hidden');
@@ -1045,112 +1127,114 @@
             });
         };
         
-        const handleSaveTransaction = (e) => {
+        const handleSaveTransaction = async (e) => {
             e.preventDefault();
             const form = e.target;
             const formData = new FormData(form);
             const isInstallment = formData.get('isInstallment') === 'on';
             
-            if (isInstallment) {
-                const description = formData.get('description');
-                const totalValue = parseCurrency(formData.get('value'));
-                const numInstallments = parseInt(formData.get('installments'));
-                const firstDueDate = new Date(formData.get('date') + 'T00:00:00');
+            try {
+                if (isInstallment) {
+                    const description = formData.get('description');
+                    const totalValue = parseCurrency(formData.get('value'));
+                    const numInstallments = parseInt(formData.get('installments'));
+                    const firstDueDate = new Date(formData.get('date') + 'T00:00:00');
 
-                if (numInstallments <= 1) {
-                    showToast('O número de parcelas deve ser 2 ou maior.', 'error');
-                    return;
-                }
+                    if (numInstallments <= 1) {
+                        showToast('O número de parcelas deve ser 2 ou maior.', 'error');
+                        return;
+                    }
 
-                const installmentValue = totalValue / numInstallments;
-                const installmentGroupId = generateUUID();
+                    const installmentValue = totalValue / numInstallments;
+                    const installmentGroupId = generateUUID();
 
-                for (let i = 0; i < numInstallments; i++) {
-                    const dueDate = new Date(firstDueDate);
-                    dueDate.setUTCMonth(firstDueDate.getUTCMonth() + i);
-
-                    const tx = {
-                        id: generateUUID(),
-                        description: `${description} (${i + 1}/${numInstallments})`,
-                        value: installmentValue,
-                        date: dueDate.toISOString(),
-                        type: 'despesa',
-                        status: 'a pagar',
-                        isInstallment: true,
-                        installmentGroupId: installmentGroupId,
+                    for (let i = 0; i < numInstallments; i++) {
+                        const dueDate = new Date(firstDueDate);
+                        dueDate.setUTCMonth(firstDueDate.getUTCMonth() + i);
+                        const txData = {
+                            description: `${description} (${i + 1}/${numInstallments})`,
+                            value: installmentValue,
+                            date: dueDate,
+                            type: 'despesa',
+                            status: 'a pagar',
+                            isInstallment: true,
+                            installmentGroupId: installmentGroupId,
+                            isDeleted: false,
+                        };
+                         await addDoc(collection(db, `users/${AppState.userId}/transactions`), txData);
+                    }
+                    showToast(`${numInstallments} parcelas criadas com sucesso!`, 'success');
+                } else {
+                    const id = formData.get('id');
+                    const isEditing = !!id;
+                    const type = formData.get('type');
+                    let status = formData.get('status');
+                    if (status === 'a_pagar') status = type === 'receita' ? 'a receber' : 'a pagar';
+                    if (status === 'pago') status = type === 'receita' ? 'recebido' : 'pago';
+                    const txData = {
+                        description: formData.get('description'),
+                        value: parseCurrency(formData.get('value')),
+                        date: new Date(formData.get('date') + 'T00:00:00'),
+                        type: type,
+                        status: status,
+                        shortcutId: formData.get('shortcutId') || (isEditing ? AppState.transactions.find(t=>t.id === id).shortcutId : null),
+                        abateId: isEditing ? AppState.transactions.find(t=>t.id === id).abateId : null,
                         isDeleted: false,
                     };
-                    AppState.transactions.push(tx);
+                    if (isEditing) {
+                        await setDoc(doc(db, `users/${AppState.userId}/transactions`, id), txData);
+                    } else {
+                        await addDoc(collection(db, `users/${AppState.userId}/transactions`), txData);
+                    }
+                    showToast(`Transação ${isEditing ? 'atualizada' : 'salva'} com sucesso!`);
                 }
-                showToast(`${numInstallments} parcelas criadas com sucesso!`, 'success');
-            } else {
-                const id = formData.get('id');
-                const isEditing = !!id;
-                const type = formData.get('type');
-                let status = formData.get('status');
-                if (status === 'a_pagar') status = type === 'receita' ? 'a receber' : 'a pagar';
-                if (status === 'pago') status = type === 'receita' ? 'recebido' : 'pago';
-                const tx = {
-                    id: id || generateUUID(),
-                    description: formData.get('description'),
-                    value: parseCurrency(formData.get('value')),
-                    date: new Date(formData.get('date') + 'T00:00:00').toISOString(),
-                    type: type,
-                    status: status,
-                    shortcutId: formData.get('shortcutId') || (isEditing ? AppState.transactions.find(t=>t.id === id).shortcutId : null),
-                    abateId: isEditing ? AppState.transactions.find(t=>t.id === id).abateId : null,
-                    isDeleted: false,
-                };
-                if (isEditing) {
-                    const index = AppState.transactions.findIndex(t => t.id === id);
-                    AppState.transactions[index] = tx;
-                } else {
-                    AppState.transactions.push(tx);
-                }
-                showToast(`Transação ${isEditing ? 'atualizada' : 'salva'} com sucesso!`);
+                closeModal();
+            } catch(error) {
+                console.error("Error saving transaction: ", error);
+                showToast('Erro ao salvar transação.', 'error');
             }
-
-            closeModal();
-            renderAll();
         };
 
         const handleDeleteTransaction = (id) => {
             const tx = AppState.transactions.find(t => t.id === id);
             if (!tx) return;
             if (tx.shortcutId) {
-                const msg = "Esta transação faz parte de um lançamento fixo. Excluí-la irá removê-la permanentemente, mas outras transações fixas não serão afetadas. Deseja continuar?";
-                openConfirmationModal(msg, () => {
-                    tx.isDeleted = true;
+                const msg = "Esta transação faz parte de um lançamento fixo. Deseja excluir apenas esta ocorrência?";
+                openConfirmationModal(msg, async () => {
+                    await setDoc(doc(db, `users/${AppState.userId}/transactions`, id), { isDeleted: true }, { merge: true });
                     showToast('Transação excluída com sucesso!', 'success');
-                    renderAll();
                 });
             } else if (tx.isInstallment) {
-                const msg = "Esta transação é uma parcela. Deseja excluir apenas esta parcela ou todas as parcelas futuras desta compra?";
-                 openConfirmationModal(msg, () => { // Simplified to delete only one for now
-                    tx.isDeleted = true;
+                 const msg = "Esta transação é uma parcela. Deseja excluir apenas esta parcela ou todas as parcelas futuras desta compra?";
+                 openConfirmationModal(msg, async () => { 
+                    await setDoc(doc(db, `users/${AppState.userId}/transactions`, id), { isDeleted: true }, { merge: true });
                     showToast('Parcela excluída com sucesso!', 'success');
-                    renderAll();
                 });
             } else {
                 const msg = "Tem certeza que deseja excluir esta transação? Esta ação é irreversível.";
-                openConfirmationModal(msg, () => {
-                    AppState.transactions = AppState.transactions.filter(t => t.id !== id);
+                openConfirmationModal(msg, async () => {
+                    await deleteDoc(doc(db, `users/${AppState.userId}/transactions`, id));
                     showToast('Transação excluída com sucesso!', 'success');
-                    renderAll();
                 });
             }
         };
         
-        const handleToggleTransactionStatus = (id) => {
+        const handleToggleTransactionStatus = async (id) => {
             const tx = AppState.transactions.find(t => t.id === id);
             if (!tx) return;
+            let newStatus = tx.status;
             if (tx.type === 'receita') {
-                tx.status = tx.status === 'recebido' ? 'a receber' : 'recebido';
+                newStatus = tx.status === 'recebido' ? 'a receber' : 'recebido';
             } else {
-                tx.status = tx.status === 'pago' ? 'a pagar' : 'pago';
+                newStatus = tx.status === 'pago' ? 'a pagar' : 'pago';
             }
-            showToast('Status da transação atualizado!', 'success');
-            renderAll();
+            try {
+                await setDoc(doc(db, `users/${AppState.userId}/transactions`, id), { status: newStatus }, { merge: true });
+                showToast('Status da transação atualizado!', 'success');
+            } catch (error) {
+                 console.error("Error updating status: ", error);
+                 showToast('Erro ao atualizar status.', 'error');
+            }
         };
 
         // -- Clientes (Consultoria) --
@@ -1184,26 +1268,28 @@
             });
         };
         
-        const handleSaveClient = (e) => {
+        const handleSaveClient = async (e) => {
             e.preventDefault();
             const form = e.target;
             const formData = new FormData(form);
             const id = formData.get('id');
             const isEditing = !!id;
             const clientData = {
-                id: id || generateUUID(),
                 name: formData.get('name'),
                 valuePerHead: parseCurrency(formData.get('valuePerHead')),
             };
-            if (isEditing) {
-                const index = AppState.clients.findIndex(c => c.id === id);
-                AppState.clients[index] = clientData;
-            } else {
-                AppState.clients.push(clientData);
-            }
-            closeModal();
-            showToast(`Cliente ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
-            renderAll();
+             try {
+                if (isEditing) {
+                    await setDoc(doc(db, `users/${AppState.userId}/clients`, id), clientData);
+                } else {
+                    await addDoc(collection(db, `users/${AppState.userId}/clients`), clientData);
+                }
+                closeModal();
+                showToast(`Cliente ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
+             } catch(error){
+                console.error("Error saving client:", error);
+                showToast('Erro ao salvar cliente.', 'error');
+             }
         };
 
         // -- Abates (Consultoria) --
@@ -1220,7 +1306,7 @@
                     <input type="hidden" name="clientId" value="${clientId}">
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Data do Abate</label>
-                        <input type="date" name="date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(abate?.date || today).split('T')[0]}" required>
+                        <input type="date" name="date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(abate?.date.toDate ? abate.date.toDate() : new Date(abate?.date || today)).toISOString().split('T')[0]}" required>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700">Nº de Cabeças</label>
@@ -1252,57 +1338,137 @@
             });
         };
 
-        const handleSaveAbate = (e) => {
+        const handleSaveAbate = async (e) => {
             e.preventDefault();
             const form = e.target;
             const formData = new FormData(form);
             const id = formData.get('id');
             const isEditing = !!id;
             const abateData = {
-                id: id || generateUUID(),
                 clientId: formData.get('clientId'),
-                date: new Date(formData.get('date') + 'T00:00:00').toISOString(),
+                date: new Date(formData.get('date') + 'T00:00:00'),
                 heads: parseInt(formData.get('heads')),
                 revenueDisplacement: parseCurrency(formData.get('revenueDisplacement')),
                 costDisplacement: parseCurrency(formData.get('costDisplacement')),
                 costAssistant: parseCurrency(formData.get('costAssistant')),
             };
-            if (isEditing) {
-                AppState.transactions = AppState.transactions.filter(t => t.abateId !== id);
-                const index = AppState.abates.findIndex(a => a.id === id);
-                AppState.abates[index] = abateData;
-            } else {
-                AppState.abates.push(abateData);
+            
+            try {
+                if (isEditing) {
+                    const txsToDelete = AppState.transactions.filter(t => t.abateId === id);
+                    for(const tx of txsToDelete){
+                        await deleteDoc(doc(db, `users/${AppState.userId}/transactions`, tx.id));
+                    }
+                    await setDoc(doc(db, `users/${AppState.userId}/abates`, id), abateData);
+                    await createTransactionsForAbate(id, abateData);
+                } else {
+                    const newAbateRef = await addDoc(collection(db, `users/${AppState.userId}/abates`), abateData);
+                    await createTransactionsForAbate(newAbateRef.id, abateData);
+                }
+                closeModal();
+                showToast(`Abate ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
+            } catch(error) {
+                 console.error("Error saving abate: ", error);
+                 showToast('Erro ao salvar abate.', 'error');
             }
-            createTransactionsForAbate(abateData);
-            closeModal();
-            showToast(`Abate ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`);
-            renderAll();
         };
 
-        const createTransactionsForAbate = (abate) => {
-            const client = AppState.clients.find(c => c.id === abate.clientId);
+        const createTransactionsForAbate = async (abateId, abateData) => {
+            const client = AppState.clients.find(c => c.id === abateData.clientId);
             if (!client) return;
-            const mainRevenue = (abate.heads * client.valuePerHead) + abate.revenueDisplacement;
-            AppState.transactions.push({ id: generateUUID(), abateId: abate.id, description: `Abate - ${client.name}`, value: mainRevenue, date: abate.date, type: 'receita', status: 'a receber' });
-            if (abate.costDisplacement > 0) AppState.transactions.push({ id: generateUUID(), abateId: abate.id, description: `Custo Deslocamento - ${client.name}`, value: abate.costDisplacement, date: abate.date, type: 'despesa', status: 'a pagar' });
-            if (abate.costAssistant > 0) AppState.transactions.push({ id: generateUUID(), abateId: abate.id, description: `Custo Diarista - ${client.name}`, value: abate.costAssistant, date: abate.date, type: 'despesa', status: 'a pagar' });
+            const mainRevenue = (abateData.heads * client.valuePerHead) + abateData.revenueDisplacement;
+            
+            const txs = [];
+            txs.push({ abateId: abateId, description: `Abate - ${client.name}`, value: mainRevenue, date: abateData.date, type: 'receita', status: 'a receber' });
+            if (abateData.costDisplacement > 0) txs.push({ abateId: abateId, description: `Custo Deslocamento - ${client.name}`, value: abateData.costDisplacement, date: abateData.date, type: 'despesa', status: 'a pagar' });
+            if (abateData.costAssistant > 0) txs.push({ abateId: abateId, description: `Custo Diarista - ${client.name}`, value: abateData.costAssistant, date: abateData.date, type: 'despesa', status: 'a pagar' });
+
+            for(const tx of txs){
+                await addDoc(collection(db, `users/${AppState.userId}/transactions`), tx);
+            }
         };
 
         const handleDeleteAbate = (id) => {
             const msg = "Excluir este abate também removerá as transações financeiras associadas. Deseja continuar?";
-            openConfirmationModal(msg, () => {
-                AppState.abates = AppState.abates.filter(a => a.id !== id);
-                AppState.transactions = AppState.transactions.filter(t => t.abateId !== id);
+            openConfirmationModal(msg, async () => {
+                const txsToDelete = AppState.transactions.filter(t => t.abateId === id);
+                for(const tx of txsToDelete){
+                    await deleteDoc(doc(db, `users/${AppState.userId}/transactions`, tx.id));
+                }
+                await deleteDoc(doc(db, `users/${AppState.userId}/abates`, id));
                 showToast('Abate e transações vinculadas foram excluídos.', 'success');
-                renderAll();
             });
         };
 
         // =================================================================================
+        // LÓGICA DE AUTENTICAÇÃO
+        // =================================================================================
+        const authContainer = document.getElementById('auth-container');
+        const appContainer = document.getElementById('app-container');
+        const loginForm = document.getElementById('login-form');
+        const authError = document.getElementById('auth-error');
+        const showSignupBtn = document.getElementById('show-signup');
+        const loginBtn = document.getElementById('login-btn');
+        
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // Usuário está logado
+                AppState.userId = user.uid;
+                authContainer.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                document.getElementById('user-display').textContent = `Logado como: ${user.email}`;
+                initializePeriod();
+                setupFirestoreListeners(user.uid);
+            } else {
+                // Usuário está deslogado
+                AppState.userId = null;
+                detachFirestoreListeners();
+                authContainer.classList.remove('hidden');
+                appContainer.classList.add('hidden');
+            }
+        });
+
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = loginForm.email.value;
+            const password = loginForm.password.value;
+            const isSignup = loginBtn.textContent.trim() === 'Cadastrar';
+
+            authError.textContent = '';
+
+            if (isSignup) {
+                createUserWithEmailAndPassword(auth, email, password)
+                    .catch((error) => {
+                        console.error('Signup error', error);
+                        authError.textContent = 'Erro ao cadastrar. Verifique o e-mail e a senha (mínimo 6 caracteres).';
+                    });
+            } else {
+                signInWithEmailAndPassword(auth, email, password)
+                    .catch((error) => {
+                        console.error('Login error', error);
+                        authError.textContent = 'E-mail ou senha inválidos.';
+                    });
+            }
+        });
+
+        showSignupBtn.addEventListener('click', () => {
+            const isLogin = loginBtn.textContent.trim() === 'Entrar';
+            if (isLogin) {
+                loginBtn.textContent = 'Cadastrar';
+                showSignupBtn.textContent = 'Já tenho uma conta';
+            } else {
+                loginBtn.textContent = 'Entrar';
+                showSignupBtn.textContent = 'Cadastre-se';
+            }
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            signOut(auth);
+        });
+
+        // =================================================================================
         // EVENT LISTENERS GLOBAIS
         // =================================================================================
-
         document.querySelector('nav').addEventListener('click', (e) => {
             if (e.target.matches('.tab-item')) {
                 AppState.currentTab = e.target.dataset.tab;
@@ -1318,18 +1484,16 @@
             renderTransactionList(e.target.value);
         });
         
-        document.getElementById('app').addEventListener('click', (e) => {
+        document.getElementById('app-container').addEventListener('click', (e) => {
             const target = e.target;
             const actionTarget = target.closest('[data-id], [data-type], [data-client-id], button, .shortcut-card, .client-card');
             if (!actionTarget) return;
             
-            // Atalhos
             if (target.closest('.new-shortcut-btn')) openShortcutModal(actionTarget.dataset.type);
             if (target.closest('.shortcut-card .edit-shortcut-btn')) {
                 e.stopPropagation();
                 const shortcutId = target.closest('.shortcut-card').dataset.id;
-                const shortcut = AppState.shortcuts.find(s=>s.id === shortcutId);
-                openShortcutModal(shortcut.type, shortcutId);
+                openShortcutModal(null, shortcutId);
             }
             if (target.closest('.shortcut-card .delete-shortcut-btn')) {
                 e.stopPropagation();
@@ -1340,7 +1504,6 @@
                 handleShortcutClick(target.closest('.shortcut-card').dataset.id);
             }
             
-            // Transações
             if(target.closest('#add-generic-transaction-btn')) openTransactionModal();
             if (target.matches('.status-checkbox')) handleToggleTransactionStatus(target.dataset.transactionId);
             if (target.closest('.edit-btn')) {
@@ -1350,7 +1513,6 @@
             }
             if (target.closest('.delete-btn')) handleDeleteTransaction(target.closest('[data-id]').dataset.id);
 
-            // Consultoria
             if (target.closest('#add-client-btn')) openClientModal();
             if (target.closest('.client-card .edit-client-btn')) {
                  e.stopPropagation();
@@ -1372,19 +1534,6 @@
             }
             if (target.closest('.delete-abate-btn')) handleDeleteAbate(target.closest('[data-id]').dataset.id);
         });
-
-        // =================================================================================
-        // INICIALIZAÇÃO DA APLICAÇÃO
-        // =================================================================================
-
-        document.addEventListener('DOMContentLoaded', () => {
-            loadData();
-            if (!AppState.currentPeriodStartDate) {
-                initializePeriod();
-            }
-            renderAll();
-        });
-
     </script>
 </body>
 </html>
