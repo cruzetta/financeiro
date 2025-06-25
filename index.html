@@ -441,6 +441,8 @@
 
                     this.state.transactions.forEach(t => t.dueDate = new Date(t.dueDate));
                     this.state.slaughters.forEach(s => s.date = new Date(s.date));
+                    // CORREÇÃO: Garante que a data de criação seja um objeto Date ao carregar
+                    this.state.shortcuts.forEach(s => { if (s.createdAt) s.createdAt = new Date(s.createdAt); });
                 },
 
                 saveData() {
@@ -899,7 +901,8 @@
                              this.saveData(); this.updateUI(); this.closeAllModals();
                         }
                     } else { // Create logic
-                        const newShortcut = { id: crypto.randomUUID(), ...shortcutData };
+                        // CORREÇÃO: Adiciona a data de criação ao novo atalho
+                        const newShortcut = { id: crypto.randomUUID(), createdAt: new Date(), ...shortcutData };
                         this.state.shortcuts.push(newShortcut);
                         this.generateFixedTransactionsForCurrentPeriod(true); 
                         this.saveData(); this.updateUI(); this.closeAllModals();
@@ -941,6 +944,15 @@
                         const dueDay = shortcut.dueDay || 1;
                         const transactionDate = new Date(period.start.getFullYear(), period.start.getMonth(), dueDay);
                         
+                        // CORREÇÃO: Adiciona verificação para não gerar transações retroativas
+                        if (shortcut.createdAt) {
+                            const creationDate = new Date(shortcut.createdAt);
+                            if (transactionDate.getFullYear() < creationDate.getFullYear() ||
+                               (transactionDate.getFullYear() === creationDate.getFullYear() && transactionDate.getMonth() < creationDate.getMonth())) {
+                                return; // Pula para o próximo atalho se o período for anterior à criação
+                            }
+                        }
+
                         const existing = this.state.transactions.find(t => 
                             t.shortcutId === shortcut.id && 
                             t.dueDate.getFullYear() === transactionDate.getFullYear() &&
