@@ -441,7 +441,6 @@
 
                     this.state.transactions.forEach(t => t.dueDate = new Date(t.dueDate));
                     this.state.slaughters.forEach(s => s.date = new Date(s.date));
-                    // CORREÇÃO: Garante que a data de criação seja um objeto Date ao carregar
                     this.state.shortcuts.forEach(s => { if (s.createdAt) s.createdAt = new Date(s.createdAt); });
                 },
 
@@ -599,7 +598,12 @@
                     let transactionsToRender = this.state.transactions
                         .filter(t => t.dueDate >= period.start && t.dueDate <= period.end)
                         .filter(t => t.description.toLowerCase().includes(this.state.filterText.toLowerCase()));
-                    transactionsToRender.sort((a, b) => b.dueDate - a.dueDate);
+                    transactionsToRender.sort((a, b) => {
+                        if (a.isBalanceTransfer) return -1; // Keep balance transfer at the top
+                        if (b.isBalanceTransfer) return 1;
+                        return b.dueDate - a.dueDate;
+                    });
+
 
                     if (transactionsToRender.length === 0) {
                         this.elements.transactionsList.innerHTML = `<div class="text-center py-8 text-gray-500"><i data-lucide="inbox" class="w-12 h-12 mx-auto mb-2"></i><p>Nenhuma transação neste período.</p></div>`;
@@ -618,16 +622,27 @@
                     const typeColor = t.type === 'revenue' ? 'text-green-400' : 'text-red-400';
                     const descriptionClass = isPaid ? 'line-through text-gray-500' : 'text-gray-200';
                     const valueClass = isPaid ? 'line-through text-gray-500' : typeColor;
+                    
+                    const isAutoTransfer = t.isBalanceTransfer === true;
+
+                    const actionButtonsHTML = isAutoTransfer
+                        ? `<div class="flex items-center justify-end pr-2" title="Transação automática de saldo"><i data-lucide="lock" class="w-5 h-5 text-gray-500"></i></div>`
+                        : `<button class="edit-transaction-btn p-2 text-gray-400 hover:text-blue-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${t.id}"><i data-lucide="edit-2" class="w-4 h-4 pointer-events-none"></i></button>
+                           <button class="delete-transaction-btn p-2 text-gray-400 hover:text-red-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${t.id}"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>`;
+
                     return `
-                        <div class="grid grid-cols-2 md:grid-cols-12 gap-4 items-center p-3 rounded-lg hover:bg-gray-700/50 border-b border-gray-700 last:border-b-0">
-                            <div class="md:col-span-1 flex items-center justify-start"><input type="checkbox" data-id="${t.id}" class="transaction-status-check h-5 w-5 rounded bg-gray-600 border-gray-500 text-blue-500 focus:ring-blue-600 cursor-pointer" ${isPaid ? 'checked' : ''}></div>
+                        <div class="grid grid-cols-2 md:grid-cols-12 gap-4 items-center p-3 rounded-lg ${isAutoTransfer ? 'bg-gray-800/50' : 'hover:bg-gray-700/50'} border-b border-gray-700 last:border-b-0">
+                            <div class="md:col-span-1 flex items-center justify-start">
+                                <input type="checkbox" data-id="${t.id}" class="transaction-status-check h-5 w-5 rounded bg-gray-600 border-gray-500 text-blue-500 focus:ring-blue-600 cursor-pointer" 
+                                ${isPaid ? 'checked' : ''} 
+                                ${isAutoTransfer ? 'disabled' : ''}>
+                            </div>
                             <div class="md:col-span-4 flex items-center space-x-2"><span class="md:hidden font-bold text-gray-400">Desc:</span><p class="${descriptionClass} font-medium">${t.description}</p></div>
                             <div class="md:col-span-2 flex justify-between md:justify-end items-center"><span class="md:hidden font-bold text-gray-400">Valor:</span><p class="${valueClass} font-bold text-right">${this.formatCurrency(t.amount)}</p></div>
                             <div class="md:col-span-2 flex justify-between md:justify-center items-center"><span class="md:hidden font-bold text-gray-400">Venc:</span><p class="text-gray-400 text-sm text-center">${t.dueDate.toLocaleDateString('pt-BR')}</p></div>
                             <div class="md:col-span-1 flex justify-between md:justify-center items-center"><span class="md:hidden font-bold text-gray-400">Tipo:</span><i data-lucide="${t.type === 'revenue' ? 'arrow-down' : 'arrow-up'}" class="${typeColor} w-5 h-5"></i></div>
                             <div class="col-span-2 md:col-span-2 flex justify-end items-center space-x-2">
-                                <button class="edit-transaction-btn p-2 text-gray-400 hover:text-blue-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${t.id}"><i data-lucide="edit-2" class="w-4 h-4 pointer-events-none"></i></button>
-                                <button class="delete-transaction-btn p-2 text-gray-400 hover:text-red-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${t.id}"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                                ${actionButtonsHTML}
                             </div>
                         </div>`;
                 },
@@ -901,7 +916,6 @@
                              this.saveData(); this.updateUI(); this.closeAllModals();
                         }
                     } else { // Create logic
-                        // CORREÇÃO: Adiciona a data de criação ao novo atalho
                         const newShortcut = { id: crypto.randomUUID(), createdAt: new Date(), ...shortcutData };
                         this.state.shortcuts.push(newShortcut);
                         this.generateFixedTransactionsForCurrentPeriod(true); 
@@ -944,12 +958,11 @@
                         const dueDay = shortcut.dueDay || 1;
                         const transactionDate = new Date(period.start.getFullYear(), period.start.getMonth(), dueDay);
                         
-                        // CORREÇÃO: Adiciona verificação para não gerar transações retroativas
                         if (shortcut.createdAt) {
                             const creationDate = new Date(shortcut.createdAt);
                             if (transactionDate.getFullYear() < creationDate.getFullYear() ||
                                (transactionDate.getFullYear() === creationDate.getFullYear() && transactionDate.getMonth() < creationDate.getMonth())) {
-                                return; // Pula para o próximo atalho se o período for anterior à criação
+                                return; 
                             }
                         }
 
@@ -982,32 +995,53 @@
                 generateBalanceTransferForCurrentPeriod() {
                     let hasChanged = false;
                     const currentPeriod = this.getPeriod(this.state.currentDateForPeriod);
-
-                    const existingTransfer = this.state.transactions.find(t => 
-                        t.isBalanceTransfer &&
-                        t.dueDate.getFullYear() === currentPeriod.start.getFullYear() &&
-                        t.dueDate.getMonth() === currentPeriod.start.getMonth()
-                    );
-                    if (existingTransfer) return;
-
                     const prevMonthDate = new Date(currentPeriod.start);
-                    prevMonthDate.setDate(0); 
+                    prevMonthDate.setDate(0); // Go to the last day of the previous month
                     const prevPeriod = this.getPeriod(prevMonthDate);
 
-                    const prevPeriodTransactions = this.state.transactions.filter(t => t.dueDate >= prevPeriod.start && t.dueDate <= prevPeriod.end);
+                    // 1. Calculate the realized balance from the previous period (excluding any previous balance transfers)
+                    const prevPeriodTransactions = this.state.transactions.filter(t =>
+                        t.dueDate >= prevPeriod.start && t.dueDate <= prevPeriod.end && !t.isBalanceTransfer
+                    );
                     const received = prevPeriodTransactions.filter(t => t.type === 'revenue' && t.status === 'paid').reduce((sum, t) => sum + t.amount, 0);
                     const paid = prevPeriodTransactions.filter(t => t.type === 'expense' && t.status === 'paid').reduce((sum, t) => sum + t.amount, 0);
                     const realizedBalance = received - paid;
 
-                    if (realizedBalance !== 0) {
+                    // 2. Find the existing balance transfer transaction in the CURRENT period
+                    const existingTransferIndex = this.state.transactions.findIndex(t =>
+                        t.isBalanceTransfer &&
+                        t.dueDate.getFullYear() === currentPeriod.start.getFullYear() &&
+                        t.dueDate.getMonth() === currentPeriod.start.getMonth()
+                    );
+
+                    const newAmount = Math.abs(realizedBalance);
+                    const newType = realizedBalance >= 0 ? 'revenue' : 'expense';
+
+                    if (existingTransferIndex > -1) {
+                        // A transfer already exists, check if it needs update or deletion
+                        const existingTransfer = this.state.transactions[existingTransferIndex];
+
+                        if (realizedBalance === 0) {
+                            // If new balance is zero, delete the transfer
+                            this.state.transactions.splice(existingTransferIndex, 1);
+                            hasChanged = true;
+                        } else if (existingTransfer.amount !== newAmount || existingTransfer.type !== newType) {
+                            // If balance changed, update the transfer
+                            existingTransfer.amount = newAmount;
+                            existingTransfer.type = newType;
+                            existingTransfer.description = `Saldo Mês Anterior (${prevMonthDate.toLocaleDateString('pt-BR', {month: 'long'})})`;
+                            hasChanged = true;
+                        }
+                    } else if (realizedBalance !== 0) {
+                        // No transfer exists and the balance is not zero, so create one
                         hasChanged = true;
                         this.state.transactions.push({
                             id: crypto.randomUUID(),
                             description: `Saldo Mês Anterior (${prevMonthDate.toLocaleDateString('pt-BR', {month: 'long'})})`,
-                            amount: Math.abs(realizedBalance),
-                            dueDate: currentPeriod.start,
-                            type: realizedBalance >= 0 ? 'revenue' : 'expense',
-                            status: 'paid', 
+                            amount: newAmount,
+                            dueDate: currentPeriod.start, // First day of the current month
+                            type: newType,
+                            status: 'paid',
                             isBalanceTransfer: true,
                         });
                     }
