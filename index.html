@@ -523,7 +523,7 @@
             },
             
             // --- CONSTANTS ---
-            iconList: ['landmark', 'shopping-cart', 'utensils-crossed', 'home', 'car', 'heart-pulse', 'graduation-cap', 'plane', 'briefcase', 'gift', 'paw-print', 'receipt', 'piggy-bank', 'scale', 'banknote', 'coins', 'credit-card', 'wallet', 'wrench', 'building', 'baby', 'truck', 'sprout'],
+            iconList: ['landmark', 'shopping-cart', 'utensils-crossed', 'home', 'car', 'heart-pulse', 'graduation-cap', 'plane', 'briefcase', 'gift', 'paw-print', 'receipt', 'piggy-bank', 'scale', 'banknote', 'coins', 'credit-card', 'wallet', 'wrench', 'building', 'truck', 'sprout'],
 
             // --- INITIALIZATION ---
             init() {
@@ -562,8 +562,10 @@
             
             // --- UI & VIEW MANAGEMENT ---
             updateUI() {
-                this.generateBalanceTransferForCurrentPeriod();
+                // This function is now simpler, it just renders the current state.
+                // Balance and fixed transactions are handled by dedicated functions when needed.
                 this.generateFixedTransactionsForCurrentPeriod();
+                this.updateBalanceTransactionForPeriod(this.state.currentDateForPeriod);
 
                 // Render based on the current active view
                 switch (this.state.currentView) {
@@ -710,7 +712,7 @@
                 transactionsToRender.sort((a, b) => {
                     if (a.isBalanceTransfer) return -1; // Keep balance transfer at the top
                     if (b.isBalanceTransfer) return 1;
-                    return b.dueDate - a.dueDate;
+                    return a.dueDate - b.dueDate;
                 });
 
 
@@ -814,7 +816,16 @@
                     if (button.matches('.delete-slaughter-btn')) this.confirmDeleteSlaughter(id);
                 });
                 
-                document.body.addEventListener('change', e => { if (e.target.matches('.transaction-status-check')) this.toggleTransactionStatus(e.target.dataset.id, e.target.checked); });
+                document.body.addEventListener('change', e => { 
+                    if (e.target.matches('.transaction-status-check')) {
+                         const id = e.target.dataset.id;
+                         const isPaid = e.target.checked;
+                         const transaction = this.state.transactions.find(t => t.id === id);
+                         if (transaction) {
+                            this.toggleTransactionStatus(id, isPaid, transaction.dueDate);
+                         }
+                    }
+                });
                 
                 this.elements.iconSelection.addEventListener('click', e => {
                     const iconButton = e.target.closest('.icon-btn');
@@ -830,7 +841,6 @@
             openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); },
             closeAllModals() { document.querySelectorAll('.modal').forEach(modal => modal.classList.add('hidden')); },
 
-            // Transaction Modal Logic (existing)
             openTransactionModal(id = null, shortcutId = null) {
                 const form = this.elements.transactionForm;
                 form.reset();
@@ -876,10 +886,14 @@
                 const amount = parseFloat(form['transaction-amount'].value);
                 const installments = parseInt(form['transaction-installments'].value) || 1;
                 const baseDueDate = new Date(dueDateValue + 'T12:00:00');
+                let propagationStartDate = baseDueDate;
 
                 if (id) {
                     const index = this.state.transactions.findIndex(t => t.id === id);
-                    if (index !== -1) { Object.assign(this.state.transactions[index], { description: form['transaction-description'].value, amount, dueDate: baseDueDate, type: form['transaction-type'].value, status: form['transaction-status'].value }); }
+                    if (index !== -1) { 
+                        propagationStartDate = this.state.transactions[index].dueDate; // Use old date for propagation start
+                        Object.assign(this.state.transactions[index], { description: form['transaction-description'].value, amount, dueDate: baseDueDate, type: form['transaction-type'].value, status: form['transaction-status'].value }); 
+                    }
                 } else {
                     const totalAmount = amount, installmentAmount = parseFloat((totalAmount / installments).toFixed(2)), firstInstallmentAmount = totalAmount - (installmentAmount * (installments - 1));
                     const baseTransaction = { description: form['transaction-description'].value, type: form['transaction-type'].value, status: form['transaction-status'].value, shortcutId: form['transaction-shortcut-id'].value || null };
@@ -889,11 +903,20 @@
                         this.state.transactions.push({ ...baseTransaction, id: crypto.randomUUID(), amount: i === 0 ? firstInstallmentAmount : installmentAmount, dueDate: newDate, description: installments > 1 ? `${baseTransaction.description} (${i+1}/${installments})` : baseTransaction.description, installmentGroupId: installments > 1 ? installmentGroupId : null });
                     }
                 }
-                this.saveData(); this.updateUI(); this.closeAllModals();
+                this.propagateBalanceChanges(propagationStartDate);
+                this.saveData(); 
+                this.updateUI(); 
+                this.closeAllModals();
             },
-            toggleTransactionStatus(id, isPaid) {
+            
+            toggleTransactionStatus(id, isPaid, transactionDate) {
                 const transaction = this.state.transactions.find(t => t.id === id);
-                if (transaction) { transaction.status = isPaid ? 'paid' : 'pending'; this.saveData(); this.updateUI(); }
+                if (transaction) {
+                    transaction.status = isPaid ? 'paid' : 'pending'; 
+                    this.propagateBalanceChanges(transactionDate);
+                    this.saveData(); 
+                    this.updateUI(); 
+                }
             },
 
             confirmDeleteTransaction(id) {
@@ -906,14 +929,18 @@
                         'warning',
                         [
                             { text: 'Excluir Apenas Esta', class: 'bg-yellow-600 hover:bg-yellow-700', action: () => {
+                                const deletedDate = transaction.dueDate;
                                 this.state.transactions = this.state.transactions.filter(t => t.id !== id);
+                                this.propagateBalanceChanges(deletedDate);
                                 this.saveData(); this.updateUI(); this.closeAllModals();
                             }},
                             { text: 'Excluir Esta e Futuras', class: 'bg-red-600 hover:bg-red-700', action: () => {
+                                const deletedDate = transaction.dueDate;
                                 this.state.transactions = this.state.transactions.filter(t => {
                                     if (t.installmentGroupId !== transaction.installmentGroupId) return true;
                                     return t.dueDate < transaction.dueDate;
                                 });
+                                this.propagateBalanceChanges(deletedDate);
                                 this.saveData(); this.updateUI(); this.closeAllModals();
                             }},
                             { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
@@ -926,7 +953,9 @@
                         'warning',
                         [
                             { text: 'Confirmar Exclusão', class: 'bg-red-600 hover:bg-red-700', action: () => {
+                                const deletedDate = transaction.dueDate;
                                 this.state.transactions = this.state.transactions.filter(t => t.id !== id);
+                                this.propagateBalanceChanges(deletedDate);
                                 this.saveData(); this.updateUI(); this.closeAllModals();
                             }},
                             { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
@@ -935,7 +964,6 @@
                 }
             },
             
-            // Shortcut Logic (existing)
              openShortcutModal(id = null) {
                 const form = this.elements.shortcutForm;
                 form.reset();
@@ -943,11 +971,9 @@
                 this.elements.shortcutEffectiveDateSection.classList.add('hidden');
                 this.elements.shortcutDueDaySection.classList.add('hidden');
                 this.populateIcons();
-                
-                // CORREÇÃO: Chamar lucide.createIcons() após popular os ícones no DOM.
                 lucide.createIcons();
 
-                if(id) { // Editing existing shortcut
+                if(id) { 
                     const shortcut = this.state.shortcuts.find(s => s.id === id); if(!shortcut) return;
                     this.elements.shortcutModalTitle.textContent = 'Editar Atalho';
                     form.elements['shortcut-id'].value = shortcut.id; 
@@ -966,9 +992,9 @@
                         form.elements['shortcut-effective-date'].value = this.formatDateForInput(new Date());
                     }
 
-                } else { // Creating new shortcut
+                } else { 
                     this.elements.shortcutModalTitle.textContent = 'Novo Atalho';
-                    form.elements['shortcut-due-day'].value = 1; // Default due day
+                    form.elements['shortcut-due-day'].value = 1; 
                     const firstIcon = this.elements.iconSelection.querySelector('.icon-btn');
                     if(firstIcon) { firstIcon.classList.add('ring-2', 'ring-blue-500'); form.elements['shortcut-icon'].value = firstIcon.dataset.icon; }
                 }
@@ -988,7 +1014,7 @@
                     dueDay: parseInt(form['shortcut-due-day'].value) || 1,
                 };
                 
-                if (id) { // Update logic
+                if (id) { 
                     const index = this.state.shortcuts.findIndex(s => s.id === id); if (index === -1) return;
                     const originalShortcut = this.state.shortcuts[index];
                     const isFixedChange = originalShortcut.frequency === 'fixed' && 
@@ -1016,6 +1042,7 @@
                                         !(t.shortcutId === id && t.isAutoGenerated && t.status === 'pending' && t.dueDate >= effectiveDate)
                                     );
                                     
+                                    this.propagateBalanceChanges(effectiveDate);
                                     this.saveData();
                                     this.updateUI();
                                     this.closeAllModals();
@@ -1027,10 +1054,10 @@
                          this.state.shortcuts[index] = { ...originalShortcut, ...shortcutData };
                          this.saveData(); this.updateUI(); this.closeAllModals();
                     }
-                } else { // Create logic
+                } else { 
                     const newShortcut = { id: crypto.randomUUID(), createdAt: new Date(), ...shortcutData };
                     this.state.shortcuts.push(newShortcut);
-                    this.generateFixedTransactionsForCurrentPeriod(true); 
+                    this.generateFixedTransactionsForCurrentPeriod();
                     this.saveData(); this.updateUI(); this.closeAllModals();
                 }
             },
@@ -1038,7 +1065,7 @@
              confirmDeleteShortcut(id) {
                 const shortcut = this.state.shortcuts.find(s => s.id === id); if (!shortcut) return;
                 const message = shortcut.frequency === 'fixed'
-                    ? `Isto também excluirá todas as transações futuras (pendentes) geradas por este atalho, a partir do período atual. O histórico passado será mantido.`
+                    ? `Isto também excluirá todas as transações futuras (pendentes) geradas por este atalho. O histórico passado será mantido.`
                     : `As transações existentes não serão afetadas.`;
                 
                 this.showMessage(
@@ -1047,13 +1074,14 @@
                     'warning',
                     [
                         { text: 'Confirmar Exclusão', class: 'bg-red-600 hover:bg-red-700', action: () => {
+                            let propagationDate = new Date();
                             if (shortcut.frequency === 'fixed') {
-                                const referenceDate = this.getPeriod(this.state.currentDateForPeriod).start;
                                 this.state.transactions = this.state.transactions.filter(t => 
-                                    !(t.shortcutId === id && t.isAutoGenerated && t.dueDate >= referenceDate && t.status === 'pending')
+                                    !(t.shortcutId === id && t.isAutoGenerated && t.status === 'pending')
                                 );
                             }
                             this.state.shortcuts = this.state.shortcuts.filter(s => s.id !== id);
+                            this.propagateBalanceChanges(propagationDate);
                             this.saveData(); this.updateUI(); this.closeAllModals();
                         }},
                         { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
@@ -1062,8 +1090,7 @@
             },
 
             // --- ADVANCED LOGIC: FIXED & BALANCE TRANSACTIONS ---
-            generateFixedTransactionsForCurrentPeriod(forceSave = false) {
-                let hasChanged = false;
+            generateFixedTransactionsForCurrentPeriod() {
                 const period = this.getPeriod(this.state.currentDateForPeriod);
 
                 this.state.shortcuts.filter(s => s.frequency === 'fixed').forEach(shortcut => {
@@ -1072,9 +1099,8 @@
                     
                     if (shortcut.createdAt) {
                         const creationDate = new Date(shortcut.createdAt);
-                        if (transactionDate.getFullYear() < creationDate.getFullYear() ||
-                           (transactionDate.getFullYear() === creationDate.getFullYear() && transactionDate.getMonth() < creationDate.getMonth())) {
-                            return; 
+                        if (transactionDate < new Date(creationDate.getFullYear(), creationDate.getMonth(), 1)) {
+                           return; 
                         }
                     }
 
@@ -1085,7 +1111,6 @@
                     );
 
                     if (!existing) {
-                        hasChanged = true;
                         this.state.transactions.push({ 
                             id: crypto.randomUUID(), 
                             description: shortcut.name, 
@@ -1098,28 +1123,22 @@
                         });
                     }
                 });
-                
-                if (hasChanged || forceSave) {
-                    this.saveData();
-                }
             },
 
-            generateBalanceTransferForCurrentPeriod() {
-                let hasChanged = false;
-                const currentPeriod = this.getPeriod(this.state.currentDateForPeriod);
+            updateBalanceTransactionForPeriod(dateForPeriod) {
+                const currentPeriod = this.getPeriod(dateForPeriod);
                 const prevMonthDate = new Date(currentPeriod.start);
-                prevMonthDate.setDate(0); // Go to the last day of the previous month
+                prevMonthDate.setDate(0); 
                 const prevPeriod = this.getPeriod(prevMonthDate);
 
-                // 1. Calculate the realized balance from the previous period (excluding any previous balance transfers)
+                // CORREÇÃO: O filtro aqui agora inclui a transação de saldo anterior para garantir a propagação correta.
                 const prevPeriodTransactions = this.state.transactions.filter(t =>
-                    t.dueDate >= prevPeriod.start && t.dueDate <= prevPeriod.end && !t.isBalanceTransfer
+                    t.dueDate >= prevPeriod.start && t.dueDate <= prevPeriod.end
                 );
                 const received = prevPeriodTransactions.filter(t => t.type === 'revenue' && t.status === 'paid').reduce((sum, t) => sum + t.amount, 0);
                 const paid = prevPeriodTransactions.filter(t => t.type === 'expense' && t.status === 'paid').reduce((sum, t) => sum + t.amount, 0);
                 const realizedBalance = received - paid;
 
-                // 2. Find the existing balance transfer transaction in the CURRENT period
                 const existingTransferIndex = this.state.transactions.findIndex(t =>
                     t.isBalanceTransfer &&
                     t.dueDate.getFullYear() === currentPeriod.start.getFullYear() &&
@@ -1130,36 +1149,34 @@
                 const newType = realizedBalance >= 0 ? 'revenue' : 'expense';
 
                 if (existingTransferIndex > -1) {
-                    // A transfer already exists, check if it needs update or deletion
                     const existingTransfer = this.state.transactions[existingTransferIndex];
-
                     if (realizedBalance === 0) {
-                        // If new balance is zero, delete the transfer
                         this.state.transactions.splice(existingTransferIndex, 1);
-                        hasChanged = true;
                     } else if (existingTransfer.amount !== newAmount || existingTransfer.type !== newType) {
-                        // If balance changed, update the transfer
                         existingTransfer.amount = newAmount;
                         existingTransfer.type = newType;
                         existingTransfer.description = `Saldo Mês Anterior (${prevMonthDate.toLocaleDateString('pt-BR', {month: 'long'})})`;
-                        hasChanged = true;
                     }
                 } else if (realizedBalance !== 0) {
-                    // No transfer exists and the balance is not zero, so create one
-                    hasChanged = true;
                     this.state.transactions.push({
                         id: crypto.randomUUID(),
                         description: `Saldo Mês Anterior (${prevMonthDate.toLocaleDateString('pt-BR', {month: 'long'})})`,
                         amount: newAmount,
-                        dueDate: currentPeriod.start, // First day of the current month
+                        dueDate: currentPeriod.start,
                         type: newType,
                         status: 'paid',
                         isBalanceTransfer: true,
                     });
                 }
+            },
+            
+            propagateBalanceChanges(startDate) {
+                const today = new Date();
+                let currentDate = new Date(startDate.getFullYear(), startDate.getMonth() + 1, 1);
 
-                if (hasChanged) {
-                    this.saveData();
+                while (currentDate.getFullYear() < today.getFullYear() || (currentDate.getFullYear() === today.getFullYear() && currentDate.getMonth() <= today.getMonth())) {
+                    this.updateBalanceTransactionForPeriod(currentDate);
+                    currentDate.setMonth(currentDate.getMonth() + 1);
                 }
             },
             
@@ -1168,6 +1185,7 @@
                 const container = this.elements.clientListContainer;
                 if(this.state.clients.length === 0){
                     container.innerHTML = `<div class="text-center py-12 text-gray-500 col-span-full"><i data-lucide="users" class="w-16 h-16 mx-auto mb-4"></i><p>Nenhum cliente cadastrado.</p><p>Clique em "Novo Cliente" para começar.</p></div>`;
+                    lucide.createIcons();
                     return;
                 }
                 container.innerHTML = this.state.clients.map(client => `
@@ -1202,6 +1220,7 @@
 
                 if (slaughtersInPeriod.length === 0) {
                     container.innerHTML = `<div class="text-center py-8 text-gray-500"><i data-lucide="archive" class="w-12 h-12 mx-auto mb-2"></i><p>Nenhum abate registrado para este cliente no período.</p></div>`;
+                    lucide.createIcons();
                     return;
                 }
 
@@ -1360,6 +1379,7 @@
                     this.state.slaughters.push({id: slaughterId, ...slaughterData});
                 }
 
+                this.propagateBalanceChanges(slaughterData.date);
                 this.saveData();
                 this.updateUI();
                 this.closeAllModals();
@@ -1372,12 +1392,16 @@
                     'warning',
                     [
                         { text: 'Confirmar Exclusão', class: 'bg-red-600 hover:bg-red-700', action: () => {
-                            // Remove slaughter and linked transactions
-                            this.state.slaughters = this.state.slaughters.filter(s => s.id !== id);
-                            this.state.transactions = this.state.transactions.filter(t => t.slaughterId !== id);
-                            this.saveData();
-                            this.updateUI();
-                            this.closeAllModals();
+                            const slaughter = this.state.slaughters.find(s => s.id === id);
+                            if (slaughter) {
+                                const deletedDate = slaughter.date;
+                                this.state.slaughters = this.state.slaughters.filter(s => s.id !== id);
+                                this.state.transactions = this.state.transactions.filter(t => t.slaughterId !== id);
+                                this.propagateBalanceChanges(deletedDate);
+                                this.saveData();
+                                this.updateUI();
+                                this.closeAllModals();
+                            }
                         }},
                         { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
                     ]
