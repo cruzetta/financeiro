@@ -1,15 +1,15 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Centro de Comando Financeiro</title>
     
-    <!-- Tailwind CSS via CDN -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Lucide Icons via CDN -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@0.378.0/dist/umd/lucide.min.js"></script>
 
     <!-- Google Fonts: Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,1040 +17,1446 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
+        /* Custom styles */
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f3f4f6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
-        .tab-active {
-            border-bottom-color: #3b82f6;
-            color: #3b82f6;
-            font-weight: 600;
+        /* Scrollbar styles for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
         }
-        .toast-enter {
+        ::-webkit-scrollbar-track {
+            background: #1f2937; /* bg-gray-800 */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #4b5563; /* bg-gray-600 */
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #6b7280; /* bg-gray-500 */
+        }
+        /* Custom transition for modal fade-in/out */
+        .modal {
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal.hidden {
             opacity: 0;
-            transform: translateY(20px);
+            visibility: hidden;
         }
-        .toast-enter-active {
-            opacity: 1;
-            transform: translateY(0);
-            transition: opacity 300ms, transform 300ms;
+        .tab-button.active {
+            border-bottom-color: #3b82f6; /* blue-500 */
+            color: #60a5fa; /* blue-400 */
         }
-        .toast-exit {
-            opacity: 1;
-            transform: translateY(0);
-        }
-        .toast-exit-active {
-            opacity: 0;
-            transform: translateY(20px);
-            transition: opacity 300ms, transform 300ms;
-        }
-        [data-lucide] {
-            width: 1em;
-            height: 1em;
-        }
+        /* Hide app and show auth by default */
+        #app { display: none; }
+        #auth-container { display: block; }
     </style>
 </head>
-<body class="text-gray-800">
-    <!-- Tela de Autenticação -->
-    <div id="auth-container" class="flex items-center justify-center min-h-screen bg-gray-100">
-        <div class="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
-            <div>
-                <h2 class="text-2xl font-bold text-center text-gray-800">Centro de Comando Financeiro</h2>
-                <p class="mt-2 text-sm text-center text-gray-600">Acesse ou crie sua conta para continuar</p>
-            </div>
-            <form id="login-form" class="space-y-6">
-                <div class="space-y-2">
-                    <label for="email" class="text-sm font-medium">Email</label>
-                    <input type="email" id="email" name="email" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+<body class="bg-gray-900 text-gray-200">
+
+    <!-- Authentication Container -->
+    <div id="auth-container" class="min-h-screen flex items-center justify-center">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-sm">
+            <h2 id="auth-title" class="text-2xl font-bold text-center text-white mb-6">Login</h2>
+            <form id="auth-form">
+                <div class="mb-4">
+                    <label for="email" class="block mb-2 text-sm font-medium text-gray-300">Email</label>
+                    <input type="email" id="email" name="email" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                 </div>
-                <div class="space-y-2">
-                    <label for="password" class="text-sm font-medium">Senha</label>
-                    <input type="password" id="password" name="password" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                <div class="mb-6">
+                    <label for="password" class="block mb-2 text-sm font-medium text-gray-300">Senha</label>
+                    <input type="password" id="password" name="password" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
                 </div>
-                <div id="auth-error" class="text-sm text-red-600 min-h-[1.25rem]"></div>
-                <div class="flex flex-col space-y-2">
-                    <button type="submit" name="action" value="login" class="w-full px-4 py-2 font-semibold text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                        Entrar
-                    </button>
-                    <button type="submit" name="action" value="signup" class="w-full px-4 py-2 font-semibold text-white bg-gray-600 rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed">
-                        Cadastrar Nova Conta
-                    </button>
-                </div>
+                <p id="auth-error" class="text-red-400 text-sm text-center mb-4 h-5"></p>
+                <button type="submit" id="auth-submit-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors">Entrar</button>
             </form>
+            <p class="text-sm text-center text-gray-400 mt-4">
+                <span id="auth-prompt-text">Não tem uma conta?</span>
+                <button id="auth-toggle-btn" class="font-semibold text-blue-400 hover:underline">Cadastre-se</button>
+            </p>
         </div>
     </div>
-    
-    <!-- Container Principal da Aplicação -->
-    <div id="app-container" class="hidden max-w-7xl mx-auto p-4 md:p-6">
-        
-        <!-- Cabeçalho -->
-        <header class="mb-6 flex justify-between items-center">
-            <div>
-                <h1 class="text-3xl md:text-4xl font-bold text-gray-800">Centro de Comando Financeiro</h1>
-                <p id="user-display" class="text-gray-500"></p>
+
+
+    <!-- Main App Container -->
+    <div id="app" class="container mx-auto p-4 md:p-6 lg:p-8">
+        <!-- Header -->
+        <header class="text-center mb-6">
+            <div class="flex justify-between items-center">
+                 <div class="w-1/3"></div> <!-- Spacer -->
+                 <div class="w-1/3">
+                    <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">Centro de Comando</h1>
+                 </div>
+                 <div class="w-1/3 flex justify-end">
+                    <button id="logout-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 transition-colors">
+                        <i data-lucide="log-out" class="w-5 h-5"></i>
+                        <span>Sair</span>
+                    </button>
+                 </div>
             </div>
-            <button id="logout-btn" class="bg-red-500 text-white font-semibold px-4 py-2 rounded-lg shadow hover:bg-red-600 flex items-center gap-2">
-                <i data-lucide="log-out" class="w-5 h-5"></i> Sair
-            </button>
+            <div class="flex items-center justify-center space-x-4 mt-4">
+                <button id="prev-period-btn" class="p-2 rounded-md bg-gray-700 hover:bg-gray-600 transition-colors">
+                    <i data-lucide="chevron-left" class="w-6 h-6"></i>
+                </button>
+                <h2 id="period-display" class="text-lg md:text-xl font-semibold text-blue-400 w-72 text-center"></h2>
+                <button id="next-period-btn" class="p-2 rounded-md bg-gray-700 hover:bg-gray-600 transition-colors">
+                    <i data-lucide="chevron-right" class="w-6 h-6"></i>
+                </button>
+            </div>
         </header>
 
-        <!-- Navegação por Abas -->
-        <nav class="mb-6 border-b border-gray-200">
-            <ul class="flex space-x-4 md:space-x-8 -mb-px">
-                <li><button data-tab="dashboard" class="tab-item py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Dashboard</button></li>
-                <li><button data-tab="consultoria" class="tab-item py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Consultoria</button></li>
-                <li><button data-tab="relatorios" class="tab-item py-4 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300">Histórico & Relatórios</button></li>
-            </ul>
+        <!-- Tabs Navigation -->
+        <nav class="mb-8 border-b border-gray-700">
+            <div class="flex justify-center space-x-8">
+                <button id="tab-dashboard" class="tab-button text-lg font-medium py-3 border-b-2 border-transparent transition-colors">Financeiro</button>
+                <button id="tab-consultoria" class="tab-button text-lg font-medium py-3 border-b-2 border-transparent transition-colors">Consultoria</button>
+            </div>
         </nav>
 
-        <!-- Conteúdo das Abas -->
-        <main id="tab-content">
-            <!-- ABA: Dashboard Principal -->
-            <div id="dashboard-content" class="space-y-8">
-                <!-- Seletor de Período -->
-                <div class="flex items-center justify-center space-x-4 bg-white p-4 rounded-lg shadow-sm">
-                    <button id="prev-period" class="p-2 rounded-full hover:bg-gray-100"><i data-lucide="chevron-left" class="w-6 h-6"></i></button>
-                    <h2 id="period-display" class="text-xl font-semibold text-center w-80"></h2>
-                    <button id="next-period" class="p-2 rounded-full hover:bg-gray-100"><i data-lucide="chevron-right" class="w-6 h-6"></i></button>
-                </div>
+        <!-- Main Content Area -->
+        <main id="main-content">
+            <!-- Dashboard View -->
+            <div id="view-dashboard">
+                <!-- KPIs Dashboard -->
+                <section id="kpi-dashboard" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
+                    <!-- KPIs will be injected here by JS -->
+                </section>
 
-                <!-- Cards de Resumo (KPIs) -->
-                <div id="kpi-cards" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                    <!-- Cards serão injetados aqui -->
-                </div>
-                
-                <!-- Botão de Nova Transação Avulsa -->
-                <div class="flex justify-end">
-                    <button id="add-generic-transaction-btn" class="bg-blue-500 text-white font-semibold px-4 py-2 rounded-lg shadow hover:bg-blue-600 flex items-center gap-2">
-                        <i data-lucide="plus-circle" class="w-5 h-5"></i> Nova Transação
-                    </button>
-                </div>
-
-                <!-- Atalhos de Lançamentos -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <!-- Atalhos de Receitas -->
-                    <div class="bg-white p-6 rounded-lg shadow-sm space-y-4">
-                        <div class="flex justify-between items-center">
-                            <h3 class="text-2xl font-bold text-green-600">Receitas</h3>
-                            <button data-type="receita" class="new-shortcut-btn bg-green-500 text-white font-semibold px-3 py-1 rounded-lg hover:bg-green-600 flex items-center gap-2 text-sm">
-                                <i data-lucide="plus" class="w-4 h-4"></i> Novo Atalho
-                            </button>
-                        </div>
-                        <div id="receitas-shortcuts" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                            <!-- Cards de atalho de receita -->
+                <!-- Shortcuts & Actions -->
+                <section class="mb-8">
+                    <div class="flex flex-col md:flex-row gap-8">
+                        <!-- Shortcuts -->
+                        <div class="w-full grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div id="revenue-shortcuts-section">
+                                <h3 class="text-xl font-bold mb-4 text-green-400 flex items-center"><i data-lucide="trending-up" class="mr-2"></i>Atalhos de Receita</h3>
+                                <div id="revenue-shortcuts" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                            </div>
+                            <div id="expense-shortcuts-section">
+                                <h3 class="text-xl font-bold mb-4 text-red-400 flex items-center"><i data-lucide="trending-down" class="mr-2"></i>Atalhos de Despesa</h3>
+                                <div id="expense-shortcuts" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+                            </div>
                         </div>
                     </div>
-                    <!-- Atalhos de Despesas -->
-                    <div class="bg-white p-6 rounded-lg shadow-sm space-y-4">
-                        <div class="flex justify-between items-center">
-                            <h3 class="text-2xl font-bold text-red-600">Despesas</h3>
-                            <button data-type="despesa" class="new-shortcut-btn bg-red-500 text-white font-semibold px-3 py-1 rounded-lg hover:bg-red-600 flex items-center gap-2 text-sm">
-                                <i data-lucide="plus" class="w-4 h-4"></i> Novo Atalho
-                            </button>
-                        </div>
-                        <div id="despesas-shortcuts" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                            <!-- Cards de atalho de despesa -->
-                        </div>
+                     <div class="mt-6 flex flex-col sm:flex-row gap-4 justify-center">
+                        <button id="add-shortcut-btn" class="flex-1 w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2">
+                            <i data-lucide="star" class="w-5 h-5"></i>
+                            <span>Novo Atalho</span>
+                        </button>
+                        <button id="add-transaction-btn" class="flex-1 w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2">
+                            <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                            <span>Nova Transação</span>
+                        </button>
                     </div>
-                </div>
+                </section>
 
-                <!-- Lista de Transações do Período -->
-                <div class="bg-white p-6 rounded-lg shadow-sm">
-                    <h3 class="text-2xl font-bold mb-4">Transações do Período</h3>
-                    <input type="text" id="transaction-search" placeholder="🔎 Filtrar por descrição..." class="w-full mb-4 p-2 border border-gray-300 rounded-lg">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left">
-                            <thead>
-                                <tr class="border-b">
-                                    <th class="p-2">Status</th>
-                                    <th class="p-2">Descrição</th>
-                                    <th class="p-2 text-right">Valor</th>
-                                    <th class="p-2">Data</th>
-                                    <th class="p-2 text-center">Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody id="transaction-list">
-                                <!-- Linhas de transação serão injetadas aqui -->
-                            </tbody>
-                        </table>
+                <!-- Transactions List -->
+                <section class="bg-gray-800 p-4 md:p-6 rounded-lg shadow-xl">
+                    <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+                        <h3 class="text-2xl font-bold text-white">Transações do Período</h3>
+                        <div class="relative w-full sm:w-64">
+                            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"></i>
+                            <input type="text" id="search-input" placeholder="Buscar por descrição..." class="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
                     </div>
-                </div>
+                    <div id="transactions-list" class="overflow-x-auto">
+                        <!-- Transaction list will be injected here -->
+                    </div>
+                </section>
             </div>
 
-            <!-- ABA: Módulo de Consultoria -->
-            <div id="consultoria-content" class="hidden text-center p-10 bg-white rounded-lg shadow-sm">
-                <i data-lucide="hard-hat" class="w-16 h-16 mx-auto text-yellow-500 mb-4"></i>
-                <h2 class="text-2xl font-bold text-gray-700">Em Desenvolvimento</h2>
-                <p class="text-gray-500 mt-2">Esta seção está em construção. Volte em breve para novas funcionalidades!</p>
-            </div>
+            <!-- Consultoria View -->
+            <div id="view-consultoria" class="hidden">
+                 <!-- Client List View -->
+                <div id="client-list-view">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-3xl font-bold text-white">Clientes</h2>
+                        <button id="add-client-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 transition-colors">
+                            <i data-lucide="user-plus"></i>
+                            <span>Novo Cliente</span>
+                        </button>
+                    </div>
+                    <div id="client-list-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Client cards will be injected here -->
+                    </div>
+                </div>
 
-            <!-- ABA: Histórico & Relatórios -->
-            <div id="relatorios-content" class="hidden text-center p-10 bg-white rounded-lg shadow-sm">
-                <i data-lucide="hard-hat" class="w-16 h-16 mx-auto text-yellow-500 mb-4"></i>
-                <h2 class="text-2xl font-bold text-gray-700">Em Desenvolvimento</h2>
-                <p class="text-gray-500 mt-2">Esta seção está em construção. Volte em breve para novas funcionalidades!</p>
+                <!-- Slaughter Detail View -->
+                <div id="slaughter-detail-view" class="hidden">
+                    <header class="mb-6">
+                        <button id="back-to-clients-btn" class="text-blue-400 hover:text-blue-300 mb-4 flex items-center space-x-2">
+                            <i data-lucide="arrow-left"></i>
+                            <span>Voltar para Clientes</span>
+                        </button>
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h2 id="slaughter-client-name" class="text-3xl font-bold text-white"></h2>
+                                <p id="slaughter-client-rate" class="text-gray-400"></p>
+                            </div>
+                            <button id="add-slaughter-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg flex items-center space-x-2 transition-colors">
+                                <i data-lucide="plus"></i>
+                                <span>Novo Abate</span>
+                            </button>
+                        </div>
+                    </header>
+                    <section id="slaughter-list-container" class="bg-gray-800 p-4 md:p-6 rounded-lg shadow-xl">
+                         <!-- Slaughter list will be injected here -->
+                    </section>
+                </div>
             </div>
         </main>
     </div>
 
-    <!-- Modal Genérico -->
-    <div id="modal-container" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 hidden">
-        <div id="modal-content" class="bg-white rounded-lg shadow-xl w-full max-w-md m-auto transform transition-all">
-            <!-- Conteúdo do modal será injetado aqui -->
+    <!-- Modals Container -->
+    <div id="modals">
+        <!-- Transaction Modal -->
+        <div id="transaction-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+            <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md relative">
+                <button class="close-modal-btn absolute top-3 right-4 text-gray-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
+                <h2 id="transaction-modal-title" class="text-2xl font-bold mb-6 text-center">Nova Transação</h2>
+                <form id="transaction-form">
+                    <input type="hidden" id="transaction-id" name="transaction-id">
+                    <input type="hidden" id="transaction-shortcut-id" name="transaction-shortcut-id">
+                    <div class="mb-4">
+                        <label for="transaction-description" class="block mb-2 text-sm font-medium text-gray-300">Descrição</label>
+                        <input type="text" id="transaction-description" name="transaction-description" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="transaction-amount" class="block mb-2 text-sm font-medium text-gray-300">Valor (R$)</label>
+                            <input type="number" step="0.01" id="transaction-amount" name="transaction-amount" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                        <div>
+                            <label for="transaction-due-date" class="block mb-2 text-sm font-medium text-gray-300">Vencimento</label>
+                            <input type="date" id="transaction-due-date" name="transaction-due-date" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-6">
+                        <div>
+                             <label for="transaction-type" class="block mb-2 text-sm font-medium text-gray-300">Tipo</label>
+                             <select id="transaction-type" name="transaction-type" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                 <option value="expense">Despesa</option>
+                                 <option value="revenue">Receita</option>
+                             </select>
+                        </div>
+                        <div>
+                            <label for="transaction-status" class="block mb-2 text-sm font-medium text-gray-300">Status</label>
+                            <select id="transaction-status" name="transaction-status" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="pending">A Pagar/Receber</option>
+                                <option value="paid">Pago/Recebido</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="installments-section" class="mb-6">
+                        <label for="transaction-installments" class="block mb-2 text-sm font-medium text-gray-300">Parcelas (1 = à vista)</label>
+                        <input type="number" min="1" id="transaction-installments" name="transaction-installments" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" value="1">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors">Salvar Transação</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Shortcut Modal -->
+        <div id="shortcut-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+            <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md relative">
+                <button class="close-modal-btn absolute top-3 right-4 text-gray-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
+                <h2 id="shortcut-modal-title" class="text-2xl font-bold mb-6 text-center">Novo Atalho</h2>
+                <form id="shortcut-form">
+                    <input type="hidden" id="shortcut-id" name="shortcut-id">
+                    <div class="mb-4">
+                        <label for="shortcut-name" class="block mb-2 text-sm font-medium text-gray-300">Nome do Atalho</label>
+                        <input type="text" id="shortcut-name" name="shortcut-name" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="shortcut-type" class="block mb-2 text-sm font-medium text-gray-300">Tipo</label>
+                            <select id="shortcut-type" name="shortcut-type" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="expense">Despesa</option>
+                                <option value="revenue">Receita</option>
+                            </select>
+                        </div>
+                        <div>
+                             <label for="shortcut-frequency" class="block mb-2 text-sm font-medium text-gray-300">Frequência</label>
+                             <select id="shortcut-frequency" name="shortcut-frequency" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                 <option value="variable">Variável</option>
+                                 <option value="fixed">Fixa (Mensal)</option>
+                             </select>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="shortcut-value" class="block mb-2 text-sm font-medium text-gray-300">Valor Padrão (R$)</label>
+                            <input type="number" step="0.01" id="shortcut-value" name="shortcut-value" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                        <div id="shortcut-due-day-section" class="hidden">
+                             <label for="shortcut-due-day" class="block mb-2 text-sm font-medium text-gray-300">Dia do Vencimento</label>
+                            <input type="number" id="shortcut-due-day" name="shortcut-due-day" min="1" max="28" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    <div id="shortcut-effective-date-section" class="mb-4 hidden">
+                        <label for="shortcut-effective-date" class="block mb-2 text-sm font-medium text-gray-300">Aplicar alteração a partir de:</label>
+                        <input type="date" id="shortcut-effective-date" name="shortcut-effective-date" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block mb-2 text-sm font-medium text-gray-300">Ícone</label>
+                        <div id="shortcut-icon-selection" class="grid grid-cols-6 gap-2 bg-gray-700 p-2 rounded-lg">
+                            <!-- Icons will be injected here -->
+                        </div>
+                        <input type="hidden" id="shortcut-icon" name="shortcut-icon" required>
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-colors">Salvar Atalho</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Client Modal -->
+        <div id="client-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+            <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md relative">
+                <button class="close-modal-btn absolute top-3 right-4 text-gray-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
+                <h2 id="client-modal-title" class="text-2xl font-bold mb-6 text-center">Novo Cliente</h2>
+                <form id="client-form">
+                    <input type="hidden" id="client-id" name="client-id">
+                    <div class="mb-4">
+                        <label for="client-name" class="block mb-2 text-sm font-medium text-gray-300">Nome do Cliente</label>
+                        <input type="text" id="client-name" name="client-name" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <div class="mb-6">
+                        <label for="client-rate" class="block mb-2 text-sm font-medium text-gray-300">Valor por Cabeça (R$)</label>
+                        <input type="number" step="0.01" id="client-rate" name="client-rate" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg transition-colors">Salvar Cliente</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Slaughter Modal -->
+        <div id="slaughter-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+            <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md relative">
+                <button class="close-modal-btn absolute top-3 right-4 text-gray-400 hover:text-white"><i data-lucide="x" class="w-6 h-6"></i></button>
+                <h2 id="slaughter-modal-title" class="text-2xl font-bold mb-6 text-center">Novo Abate</h2>
+                <form id="slaughter-form">
+                    <input type="hidden" id="slaughter-id" name="slaughter-id">
+                    <input type="hidden" id="slaughter-client-id" name="slaughter-client-id">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                             <label for="slaughter-date" class="block mb-2 text-sm font-medium text-gray-300">Data do Abate</label>
+                            <input type="date" id="slaughter-date" name="slaughter-date" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                        <div>
+                            <label for="slaughter-heads" class="block mb-2 text-sm font-medium text-gray-300">Nº de Cabeças</label>
+                            <input type="number" id="slaughter-heads" name="slaughter-heads" min="1" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                         <div>
+                            <label for="slaughter-revenue-travel" class="block mb-2 text-sm font-medium text-gray-300">Receita Desloc. (R$)</label>
+                            <input type="number" step="0.01" id="slaughter-revenue-travel" name="slaughter-revenue-travel" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label for="slaughter-cost-travel" class="block mb-2 text-sm font-medium text-gray-300">Custo Desloc. (R$)</label>
+                            <input type="number" step="0.01" id="slaughter-cost-travel" name="slaughter-cost-travel" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                     <div class="mb-6">
+                        <label for="slaughter-cost-daily" class="block mb-2 text-sm font-medium text-gray-300">Custo Diarista (R$)</label>
+                        <input type="number" step="0.01" id="slaughter-cost-daily" name="slaughter-cost-daily" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors">Salvar Abate</button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Confirmation Modal -->
+        <div id="confirmation-modal" class="modal hidden fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+            <div class="bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md text-center">
+                <div id="confirmation-icon" class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-200 mb-4">
+                  <i data-lucide="alert-triangle" class="h-6 w-6 text-red-600"></i>
+                </div>
+                <h3 id="confirmation-title" class="text-lg font-medium leading-6 text-white mb-2">Confirmar Ação</h3>
+                <div class="mt-2 text-sm text-gray-400">
+                  <p id="confirmation-message">Você tem certeza que deseja continuar?</p>
+                </div>
+                <div id="confirmation-buttons" class="mt-6 flex flex-col sm:flex-row justify-center gap-4">
+                    <!-- Buttons are dynamically inserted here -->
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Toast de Notificação -->
-    <div id="toast-container" class="fixed bottom-5 right-5 z-50"></div>
-
-    <!-- TEMPLATES HTML (para clonagem) -->
-    <template id="kpi-card-template">
-        <div class="p-4 rounded-lg shadow-sm text-center">
-            <h4 class="text-sm font-medium text-gray-500"></h4>
-            <p class="text-2xl font-bold"></p>
-        </div>
-    </template>
-    
-    <template id="transaction-row-template">
-        <tr class="border-b last:border-b-0 hover:bg-gray-50">
-            <td class="p-2">
-                <label class="flex items-center space-x-2 cursor-pointer">
-                    <input type="checkbox" class="status-checkbox form-checkbox h-5 w-5 rounded text-blue-500 border-gray-300 focus:ring-blue-500">
-                    <span class="status-text text-sm"></span>
-                </label>
-            </td>
-            <td class="p-2 flex items-center gap-2">
-                <i class="type-icon w-5 h-5"></i>
-                <span class="description-text font-medium"></span>
-            </td>
-            <td class="p-2 text-right value-text"></td>
-            <td class="p-2 text-sm text-gray-600 date-text"></td>
-            <td class="p-2">
-                <div class="flex justify-center items-center gap-2">
-                    <button class="edit-btn p-1 text-gray-500 hover:text-blue-600"><i data-lucide="edit" class="w-4 h-4"></i></button>
-                    <button class="delete-btn p-1 text-gray-500 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                </div>
-            </td>
-        </tr>
-    </template>
-    
-    <template id="shortcut-card-template">
-        <div class="shortcut-card relative group flex flex-col items-center justify-center p-3 border rounded-lg cursor-pointer hover:shadow-md hover:border-blue-400 transition-shadow h-full">
-            <i class="shortcut-icon w-8 h-8 mb-1"></i>
-            <span class="shortcut-name text-sm text-center font-medium"></span>
-            <span class="shortcut-total text-sm font-bold mt-1"></span>
-            <div class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
-                 <button class="edit-shortcut-btn p-1 text-gray-400 hover:text-blue-500" title="Editar Atalho"><i data-lucide="edit-3" class="w-3 h-3"></i></button>
-                 <button class="delete-shortcut-btn p-1 text-gray-400 hover:text-red-500" title="Excluir Atalho"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
-            </div>
-        </div>
-    </template>
-
-    <!-- Firebase SDKs -->
+    <!-- SCRIPT SECTION -->
     <script type="module">
-        // Importar as funções necessárias dos SDKs
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js";
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { 
             getAuth, 
-            onAuthStateChanged,
-            createUserWithEmailAndPassword,
+            onAuthStateChanged, 
+            createUserWithEmailAndPassword, 
             signInWithEmailAndPassword,
-            signOut 
-        } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+            signOut
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { 
-            getFirestore,
-            collection,
-            doc,
-            addDoc,
-            setDoc,
+            getFirestore, 
+            collection, 
+            doc, 
+            setDoc, 
+            getDoc, 
             deleteDoc,
-            onSnapshot,
-            query
-        } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+            writeBatch,
+            getDocs,
+            query, 
+            where
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Configuração do Firebase
+        // --- FIREBASE CONFIG ---
         const firebaseConfig = {
-          apiKey: "AIzaSyBxAjPzd-OoQU_CPeMawa6QtSLcwbY3J4A",
-          authDomain: "financeiro-4fd9a.firebaseapp.com",
-          projectId: "financeiro-4fd9a",
-          storageBucket: "financeiro-4fd9a.firebasestorage.app",
-          messagingSenderId: "82912149153",
-          appId: "1:82912149153:web:293977f1d12145eebb3ae0",
-          measurementId: "G-GL40EGD9YM"
+            apiKey: "AIzaSyBxAjPzd-OoQU_CPeMawa6QtSLcwbY3J4A",
+            authDomain: "financeiro-4fd9a.firebaseapp.com",
+            projectId: "financeiro-4fd9a",
+            storageBucket: "financeiro-4fd9a.firebasestorage.app",
+            messagingSenderId: "82912149153",
+            appId: "1:82912149153:web:293977f1d12145eebb3ae0",
+            measurementId: "G-GL40EGD9YM"
         };
 
-        // Inicializar Firebase
-        const fbApp = initializeApp(firebaseConfig);
-        const auth = getAuth(fbApp);
-        const db = getFirestore(fbApp);
-
-        // =================================================================================
-        // ESTADO DA APLICAÇÃO
-        // =================================================================================
-        const AppState = {
-            currentTab: 'dashboard',
-            currentPeriodStartDate: null,
-            transactions: [],
-            shortcuts: [],
-            userId: null,
-            listeners: [],
-        };
-
-        const LOCAL_STORAGE_KEYS = {
-            currentPeriod: 'finance_app_currentPeriod_v1',
-        };
+        // --- APP INITIALIZATION ---
+        const firebaseApp = initializeApp(firebaseConfig);
+        const auth = getAuth(firebaseApp);
+        const db = getFirestore(firebaseApp);
         
-        // =================================================================================
-        // FUNÇÕES UTILITÁRIAS
-        // =================================================================================
+        window.onload = () => {
+            const App = {
+                // --- STATE MANAGEMENT ---
+                state: {
+                    currentUser: null,
+                    currentView: 'dashboard', 
+                    currentClientId: null,
+                    currentDateForPeriod: new Date(),
+                    transactions: [],
+                    shortcuts: [],
+                    clients: [],
+                    slaughters: [],
+                    filterText: '',
+                    isAuthReady: false,
+                    isDataLoaded: false,
+                },
 
-        const formatCurrency = (value) => {
-            return new Intl.NumberFormat('pt-BR', {
-                style: 'currency',
-                currency: 'BRL'
-            }).format(value || 0);
-        };
-        
-        const formatCurrencyInput = (input) => {
-            let value = input.value.replace(/\D/g, '');
-            if (value === '') {
-                input.value = '';
-                return;
-            }
-            value = (parseInt(value, 10) / 100);
-            if (isNaN(value)) {
-                input.value = "0,00";
-                return;
-            }
-            input.value = value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        };
+                // --- DOM ELEMENTS ---
+                elements: {
+                    // Auth
+                    authContainer: document.getElementById('auth-container'),
+                    authForm: document.getElementById('auth-form'),
+                    authTitle: document.getElementById('auth-title'),
+                    authSubmitBtn: document.getElementById('auth-submit-btn'),
+                    authToggleBtn: document.getElementById('auth-toggle-btn'),
+                    authPromptText: document.getElementById('auth-prompt-text'),
+                    authError: document.getElementById('auth-error'),
+                    logoutBtn: document.getElementById('logout-btn'),
 
-        const formatDate = (date) => {
-            const d = date.toDate ? date.toDate() : new Date(date);
-            return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-        };
-        
-        const parseCurrency = (stringValue) => {
-            if (typeof stringValue !== 'string' || stringValue === '') return 0;
-            const number = Number(String(stringValue).replace(/\./g, '').replace(',', '.'));
-            return isNaN(number) ? 0 : number;
-        };
-        
-        const showToast = (message, type = 'success') => {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            const colors = {
-                success: 'bg-green-500',
-                error: 'bg-red-500',
-                info: 'bg-blue-500'
-            };
-            toast.className = `toast-enter toast-enter-active text-white px-4 py-2 rounded-lg shadow-lg ${colors[type]}`;
-            toast.textContent = message;
-            container.appendChild(toast);
+                    // Main App
+                    appContainer: document.getElementById('app'),
+                    periodDisplay: document.getElementById('period-display'),
+                    prevPeriodBtn: document.getElementById('prev-period-btn'),
+                    nextPeriodBtn: document.getElementById('next-period-btn'),
+                    kpiDashboard: document.getElementById('kpi-dashboard'),
+                    revenueShortcuts: document.getElementById('revenue-shortcuts'),
+                    expenseShortcuts: document.getElementById('expense-shortcuts'),
+                    transactionsList: document.getElementById('transactions-list'),
+                    searchInput: document.getElementById('search-input'),
+                    
+                    // Views and Tabs
+                    viewDashboard: document.getElementById('view-dashboard'),
+                    viewConsultoria: document.getElementById('view-consultoria'),
+                    tabDashboard: document.getElementById('tab-dashboard'),
+                    tabConsultoria: document.getElementById('tab-consultoria'),
 
-            setTimeout(() => {
-                toast.classList.remove('toast-enter', 'toast-enter-active');
-                toast.classList.add('toast-exit', 'toast-exit-active');
-                toast.addEventListener('transitionend', () => toast.remove());
-            }, 3000);
-        };
-        
-        // =================================================================================
-        // LÓGICA DE DADOS (FIRESTORE)
-        // =================================================================================
-        
-        const setupFirestoreListeners = (userId) => {
-            if (AppState.listeners.length > 0) detachFirestoreListeners();
+                    // Consultoria Elements
+                    clientListView: document.getElementById('client-list-view'),
+                    slaughterDetailView: document.getElementById('slaughter-detail-view'),
+                    clientListContainer: document.getElementById('client-list-container'),
+                    slaughterClientName: document.getElementById('slaughter-client-name'),
+                    slaughterClientRate: document.getElementById('slaughter-client-rate'),
+                    slaughterListContainer: document.getElementById('slaughter-list-container'),
+                    
+                    // Modals & Forms
+                    transactionModal: document.getElementById('transaction-modal'),
+                    transactionForm: document.getElementById('transaction-form'),
+                    transactionModalTitle: document.getElementById('transaction-modal-title'),
+                    installmentsSection: document.getElementById('installments-section'),
+                    shortcutModal: document.getElementById('shortcut-modal'),
+                    shortcutForm: document.getElementById('shortcut-form'),
+                    shortcutModalTitle: document.getElementById('shortcut-modal-title'),
+                    iconSelection: document.getElementById('shortcut-icon-selection'),
+                    shortcutDueDaySection: document.getElementById('shortcut-due-day-section'),
+                    shortcutEffectiveDateSection: document.getElementById('shortcut-effective-date-section'),
+                    clientModal: document.getElementById('client-modal'),
+                    clientForm: document.getElementById('client-form'),
+                    clientModalTitle: document.getElementById('client-modal-title'),
+                    slaughterModal: document.getElementById('slaughter-modal'),
+                    slaughterForm: document.getElementById('slaughter-form'),
+                    slaughterModalTitle: document.getElementById('slaughter-modal-title'),
 
-            const collections = ['transactions', 'shortcuts'];
-            
-            collections.forEach(collName => {
-                const q = query(collection(db, `users/${userId}/${collName}`));
-                const unsubscribe = onSnapshot(q, (querySnapshot) => {
-                    const data = [];
-                    querySnapshot.forEach((doc) => {
-                        data.push({ id: doc.id, ...doc.data() });
+                    // Generic Modal Elements
+                    confirmationModal: document.getElementById('confirmation-modal'),
+                    confirmationTitle: document.getElementById('confirmation-title'),
+                    confirmationMessage: document.getElementById('confirmation-message'),
+                    confirmationButtons: document.getElementById('confirmation-buttons'),
+                    confirmationIcon: document.getElementById('confirmation-icon'),
+                },
+                
+                // --- CONSTANTS ---
+                iconList: ['landmark', 'shopping-cart', 'utensils-crossed', 'home', 'car', 'heart-pulse', 'graduation-cap', 'plane', 'briefcase', 'gift', 'paw-print', 'receipt'],
+
+                // --- INITIALIZATION ---
+                init() {
+                    this.setupAuthListeners();
+                    onAuthStateChanged(auth, async (user) => {
+                        this.state.isAuthReady = true;
+                        if (user) {
+                            this.state.currentUser = user;
+                            this.elements.authContainer.style.display = 'none';
+                            this.elements.appContainer.style.display = 'block';
+                            await this.loadData();
+                            this.setupEventListeners(); // Setup general listeners only after login
+                            this.switchView('dashboard');
+                        } else {
+                            this.state.currentUser = null;
+                            this.elements.authContainer.style.display = 'flex';
+                            this.elements.appContainer.style.display = 'none';
+                            this.resetState();
+                        }
+                        lucide.createIcons();
                     });
-                    AppState[collName] = data;
-                    renderAll(); 
-                }, (error) => {
-                    console.error(`Error listening to ${collName}: `, error);
-                    showToast(`Erro ao conectar com ${collName}`, 'error');
-                });
-                AppState.listeners.push(unsubscribe);
-            });
-        };
+                },
 
-        const detachFirestoreListeners = () => {
-            AppState.listeners.forEach(unsubscribe => unsubscribe());
-            AppState.listeners = [];
-        };
+                // --- AUTHENTICATION ---
+                setupAuthListeners() {
+                    let isLogin = true;
 
-        // =================================================================================
-        // LÓGICA DE PERÍODO
-        // =================================================================================
+                    this.elements.authForm.addEventListener('submit', (e) => {
+                        e.preventDefault();
+                        const email = this.elements.authForm.email.value;
+                        const password = this.elements.authForm.password.value;
+                        this.elements.authError.textContent = '';
+                        
+                        if (isLogin) {
+                            signInWithEmailAndPassword(auth, email, password)
+                                .catch(error => this.handleAuthError(error));
+                        } else {
+                            createUserWithEmailAndPassword(auth, email, password)
+                                .catch(error => this.handleAuthError(error));
+                        }
+                    });
 
-        const initializePeriod = () => {
-            const savedPeriod = localStorage.getItem(LOCAL_STORAGE_KEYS.currentPeriod);
-            if(savedPeriod){
-                AppState.currentPeriodStartDate = new Date(savedPeriod);
-                return;
-            }
+                    this.elements.authToggleBtn.addEventListener('click', () => {
+                        isLogin = !isLogin;
+                        this.elements.authTitle.textContent = isLogin ? 'Login' : 'Cadastro';
+                        this.elements.authSubmitBtn.textContent = isLogin ? 'Entrar' : 'Cadastrar';
+                        this.elements.authPromptText.textContent = isLogin ? 'Não tem uma conta?' : 'Já tem uma conta?';
+                        this.elements.authToggleBtn.textContent = isLogin ? 'Cadastre-se' : 'Faça Login';
+                        this.elements.authError.textContent = '';
+                        this.elements.authForm.reset();
+                    });
+                    
+                    this.elements.logoutBtn.addEventListener('click', () => {
+                        signOut(auth).catch(error => console.error("Error signing out:", error));
+                    });
+                },
 
-            const today = new Date();
-            const currentDay = today.getDate();
-            const currentMonth = today.getMonth();
-            const currentYear = today.getFullYear();
+                handleAuthError(error) {
+                    console.error("Authentication Error:", error);
+                    switch (error.code) {
+                        case 'auth/user-not-found':
+                        case 'auth/wrong-password':
+                            this.elements.authError.textContent = 'Email ou senha inválidos.';
+                            break;
+                        case 'auth/email-already-in-use':
+                            this.elements.authError.textContent = 'Este email já está em uso.';
+                            break;
+                        case 'auth/weak-password':
+                            this.elements.authError.textContent = 'A senha deve ter pelo menos 6 caracteres.';
+                            break;
+                        default:
+                            this.elements.authError.textContent = 'Ocorreu um erro. Tente novamente.';
+                    }
+                },
+                
+                resetState() {
+                    this.state.currentView = 'dashboard';
+                    this.state.currentClientId = null;
+                    this.state.currentDateForPeriod = new Date();
+                    this.state.transactions = [];
+                    this.state.shortcuts = [];
+                    this.state.clients = [];
+                    this.state.slaughters = [];
+                    this.state.filterText = '';
+                    this.state.isDataLoaded = false;
+                },
 
-            if (currentDay <= 10) {
-                AppState.currentPeriodStartDate = new Date(Date.UTC(currentYear, currentMonth - 1, 11));
-            } else {
-                AppState.currentPeriodStartDate = new Date(Date.UTC(currentYear, currentMonth, 11));
-            }
-        };
-        
-        const getPeriodBounds = (startDate) => {
-            const start = new Date(startDate);
-            const end = new Date(start);
-            end.setUTCMonth(end.getUTCMonth() + 1);
-            end.setUTCDate(10);
-            return { start, end };
-        };
+                // --- DATA PERSISTENCE (Firestore) ---
+                async loadData() {
+                    if (!this.state.currentUser) return;
+                    this.state.isDataLoaded = false;
+                    const userId = this.state.currentUser.uid;
 
-        const changePeriod = (direction) => {
-            const newStartDate = new Date(AppState.currentPeriodStartDate);
-            newStartDate.setUTCMonth(newStartDate.getUTCMonth() + direction);
-            AppState.currentPeriodStartDate = newStartDate;
-            localStorage.setItem(LOCAL_STORAGE_KEYS.currentPeriod, newStartDate.toISOString());
-            renderAll();
-        };
+                    try {
+                        const collections = ['transactions', 'shortcuts', 'clients', 'slaughters'];
+                        const promises = collections.map(col => getDocs(collection(db, `users/${userId}/${col}`)));
+                        const [transactionsSnap, shortcutsSnap, clientsSnap, slaughtersSnap] = await Promise.all(promises);
 
-        // =================================================================================
-        // LÓGICA DO MODAL
-        // =================================================================================
-        const modalContainer = document.getElementById('modal-container');
-        const modalContent = document.getElementById('modal-content');
+                        this.state.transactions = transactionsSnap.docs.map(doc => {
+                            const data = doc.data();
+                            return { id: doc.id, ...data, dueDate: data.dueDate.toDate() };
+                        });
+                        this.state.shortcuts = shortcutsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        this.state.clients = clientsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        this.state.slaughters = slaughtersSnap.docs.map(doc => {
+                             const data = doc.data();
+                            return { id: doc.id, ...data, date: data.date.toDate() };
+                        });
+                        
+                        this.state.isDataLoaded = true;
+                        this.updateUI();
 
-        const openModal = (htmlContent, onOpen) => {
-            modalContent.innerHTML = htmlContent;
-            modalContainer.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-            lucide.createIcons({ nodes: [modalContent] });
-            if(onOpen) onOpen();
-        };
-        
-        const closeModal = () => {
-            modalContainer.classList.add('hidden');
-            modalContent.innerHTML = '';
-            document.body.style.overflow = 'auto';
-        };
+                    } catch (error) {
+                        console.error("Error loading data from Firestore: ", error);
+                        this.showMessage('Erro ao Carregar Dados', 'Não foi possível carregar seus dados. Por favor, recarregue a página.', 'error', [{ text: 'OK', class: 'bg-blue-600', action: () => {} }]);
+                    }
+                },
+                
+                // Helper to save a single document
+                async saveDoc(collectionName, docId, data) {
+                    if (!this.state.currentUser) return;
+                    try {
+                        await setDoc(doc(db, `users/${this.state.currentUser.uid}/${collectionName}`, docId), data);
+                    } catch (error) {
+                        console.error(`Error saving doc to ${collectionName}:`, error);
+                    }
+                },
+                
+                // Helper to delete a single document
+                async deleteDoc(collectionName, docId) {
+                    if (!this.state.currentUser) return;
+                     try {
+                        await deleteDoc(doc(db, `users/${this.state.currentUser.uid}/${collectionName}`, docId));
+                    } catch (error) {
+                        console.error(`Error deleting doc from ${collectionName}:`, error);
+                    }
+                },
 
-        modalContainer.addEventListener('click', (e) => {
-            if (e.target === modalContainer) {
-                closeModal();
-            }
-        });
+                // --- UI & VIEW MANAGEMENT ---
+                updateUI() {
+                    if (!this.state.isDataLoaded || !this.state.isAuthReady) return;
+                    
+                    this.generateBalanceTransferForCurrentPeriod();
+                    this.generateFixedTransactionsForCurrentPeriod();
 
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !modalContainer.classList.contains('hidden')) {
-                closeModal();
-            }
-        });
-        
-        const openConfirmationModal = (message, onConfirm) => {
-            const html = `
-                <div class="p-6">
-                    <div class="flex items-start">
-                        <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
-                            <i data-lucide="alert-triangle" class="h-6 w-6 text-red-600"></i>
-                        </div>
-                        <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                            <h3 class="text-lg leading-6 font-medium text-gray-900">Confirmação Necessária</h3>
-                            <div class="mt-2">
-                                <p class="text-sm text-gray-500">${message}</p>
+                    // Render based on the current active view
+                    switch (this.state.currentView) {
+                        case 'dashboard':
+                            this.renderPeriodDisplay();
+                            this.renderKPIs();
+                            this.renderShortcuts();
+                            this.renderTransactions();
+                            break;
+                        case 'consultoria-list':
+                            this.renderClientList();
+                            break;
+                        case 'consultoria-detail':
+                             this.renderPeriodDisplay();
+                            this.renderSlaughterDetail();
+                            break;
+                    }
+                    lucide.createIcons();
+                },
+                
+                switchView(view, clientId = null) {
+                    this.state.currentView = view;
+                    this.state.currentClientId = clientId;
+
+                    // Hide all main views
+                    this.elements.viewDashboard.classList.add('hidden');
+                    this.elements.viewConsultoria.classList.add('hidden');
+                    this.elements.clientListView.classList.add('hidden');
+                    this.elements.slaughterDetailView.classList.add('hidden');
+
+                    // Deactivate all tabs
+                    this.elements.tabDashboard.classList.remove('active');
+                    this.elements.tabConsultoria.classList.remove('active');
+
+                    switch (view) {
+                        case 'dashboard':
+                            this.elements.viewDashboard.classList.remove('hidden');
+                            this.elements.tabDashboard.classList.add('active');
+                            break;
+                        case 'consultoria-list':
+                            this.elements.viewConsultoria.classList.remove('hidden');
+                            this.elements.clientListView.classList.remove('hidden');
+                             this.elements.tabConsultoria.classList.add('active');
+                            break;
+                        case 'consultoria-detail':
+                             this.elements.viewConsultoria.classList.remove('hidden');
+                            this.elements.slaughterDetailView.classList.remove('hidden');
+                            this.elements.tabConsultoria.classList.add('active');
+                            break;
+                    }
+                    this.updateUI();
+                },
+
+                // --- PERIOD LOGIC ---
+                getPeriod(date) {
+                    const year = date.getFullYear();
+                    const month = date.getMonth();
+                    const start = new Date(year, month, 1, 0, 0, 0, 0);
+                    const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
+                    return { start, end };
+                },
+                
+                changePeriod(months) {
+                    this.state.currentDateForPeriod.setMonth(this.state.currentDateForPeriod.getMonth() + months);
+                    this.updateUI();
+                },
+                
+                renderPeriodDisplay() {
+                    const period = this.getPeriod(this.state.currentDateForPeriod);
+                    this.elements.periodDisplay.textContent = `${period.start.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`;
+                },
+
+                // --- KPI RENDERING ---
+                renderKPIs() {
+                    const period = this.getPeriod(this.state.currentDateForPeriod);
+                    const transactionsInPeriod = this.state.transactions.filter(t => t.dueDate >= period.start && t.dueDate <= period.end);
+
+                    const received = transactionsInPeriod.filter(t => t.type === 'revenue' && t.status === 'paid').reduce((sum, t) => sum + t.amount, 0);
+                    const paid = transactionsInPeriod.filter(t => t.type === 'expense' && t.status === 'paid').reduce((sum, t) => sum + t.amount, 0);
+                    const toReceive = transactionsInPeriod.filter(t => t.type === 'revenue' && t.status === 'pending').reduce((sum, t) => sum + t.amount, 0);
+                    const toPay = transactionsInPeriod.filter(t => t.type === 'expense' && t.status === 'pending').reduce((sum, t) => sum + t.amount, 0);
+                    
+                    const currentBalance = received - paid;
+                    const projectedBalance = currentBalance + toReceive - toPay;
+
+                    const kpis = [
+                        { label: 'Recebido', value: received, color: 'green', icon: 'arrow-down-circle' },
+                        { label: 'Pago', value: paid, color: 'red', icon: 'arrow-up-circle' },
+                        { label: 'Saldo Atual', value: currentBalance, color: 'blue', icon: 'scale' },
+                        { label: 'A Receber', value: toReceive, color: 'green', icon: 'calendar-plus' },
+                        { label: 'A Pagar', value: toPay, color: 'red', icon: 'calendar-minus' },
+                        { label: 'Saldo Previsto', value: projectedBalance, color: 'blue', icon: 'bar-chart-2' },
+                    ];
+
+                    this.elements.kpiDashboard.innerHTML = kpis.map(kpi => `
+                        <div class="bg-gray-800 p-4 rounded-lg shadow-lg flex items-center space-x-4 transition-transform transform hover:scale-105" id="kpi-${kpi.label.replace(' ', '-')}">
+                            <div class="p-3 rounded-full bg-${kpi.color}-500 bg-opacity-20 text-${kpi.color}-400">
+                                <i data-lucide="${kpi.icon}" class="w-7 h-7"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-400">${kpi.label}</p>
+                                <p class="text-2xl font-bold text-white">${this.formatCurrency(kpi.value)}</p>
                             </div>
                         </div>
-                    </div>
-                    <div class="mt-5 sm:mt-4 sm:flex sm:flex-row-reverse">
-                        <button id="confirm-ok-btn" type="button" class="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm">
-                            Confirmar
-                        </button>
-                        <button id="confirm-cancel-btn" type="button" class="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:mt-0 sm:w-auto sm:text-sm">
-                            Cancelar
-                        </button>
-                    </div>
-                </div>
-            `;
-            openModal(html, () => {
-                document.getElementById('confirm-cancel-btn').addEventListener('click', closeModal);
-                document.getElementById('confirm-ok-btn').addEventListener('click', () => {
-                    closeModal();
-                    onConfirm();
-                });
-            });
-        };
+                    `).join('');
+                },
 
-        // =================================================================================
-        // LÓGICA DE RENDERIZAÇÃO
-        // =================================================================================
-
-        const renderAll = () => {
-            renderTabs();
-            if (AppState.userId) {
-                switch (AppState.currentTab) {
-                    case 'dashboard': renderDashboard(); break;
-                }
-            }
-            lucide.createIcons();
-        };
-
-        const renderTabs = () => {
-            document.querySelectorAll('.tab-item').forEach(tab => {
-                tab.classList.toggle('tab-active', tab.dataset.tab === AppState.currentTab);
-            });
-            document.querySelectorAll('#tab-content > div').forEach(content => {
-                content.classList.toggle('hidden', content.id !== `${AppState.currentTab}-content`);
-            });
-        };
-        
-        const renderDashboard = () => {
-            renderPeriodDisplay();
-            renderKPIs();
-            renderShortcuts();
-            renderTransactionList();
-        };
-
-        const renderPeriodDisplay = () => {
-            if (!AppState.currentPeriodStartDate) return;
-            const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
-            const options = { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' };
-            const formattedStart = start.toLocaleDateString('pt-BR', options).replace(/\./g, '').replace(' de ', '/');
-            const formattedEnd = end.toLocaleDateString('pt-BR', options).replace(/\./g, '').replace(' de ', '/');
-            document.getElementById('period-display').textContent = `${formattedStart} a ${formattedEnd}`;
-        };
-
-        const renderKPIs = () => {
-            if (!AppState.currentPeriodStartDate) return;
-            const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
-            const transactionsInPeriod = AppState.transactions.filter(t => {
-                const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
-                return !t.isDeleted && tDate >= start && tDate <= end;
-            });
-
-            const recebido = transactionsInPeriod.filter(t => t.type === 'receita' && t.status === 'recebido').reduce((sum, t) => sum + t.value, 0);
-            const pago = transactionsInPeriod.filter(t => t.type === 'despesa' && t.status === 'pago').reduce((sum, t) => sum + t.value, 0);
-            const aReceber = transactionsInPeriod.filter(t => t.type === 'receita' && t.status === 'a receber').reduce((sum, t) => sum + t.value, 0);
-            const aPagar = transactionsInPeriod.filter(t => t.type === 'despesa' && t.status === 'a pagar').reduce((sum, t) => sum + t.value, 0);
-            const saldoPrevisto = (recebido + aReceber) - (pago + aPagar);
-            
-            const kpis = [
-                { title: 'Recebido', value: recebido, color: 'text-green-600', bg: 'bg-green-50' },
-                { title: 'Pago', value: pago, color: 'text-red-600', bg: 'bg-red-50' },
-                { title: 'Saldo Atual', value: recebido - pago, color: 'text-blue-600', bg: 'bg-blue-50' },
-                { title: 'A Receber', value: aReceber, color: 'text-yellow-600', bg: 'bg-yellow-50' },
-                { title: 'A Pagar', value: aPagar, color: 'text-orange-600', bg: 'bg-orange-50' },
-                { title: 'Saldo Previsto', value: saldoPrevisto, color: saldoPrevisto < 0 ? 'text-red-600' : 'text-indigo-600', bg: saldoPrevisto < 0 ? 'bg-red-50' : 'bg-indigo-50' },
-            ];
-
-            const container = document.getElementById('kpi-cards');
-            container.innerHTML = '';
-            const template = document.getElementById('kpi-card-template');
-            
-            kpis.forEach(kpi => {
-                const card = template.content.cloneNode(true).firstElementChild;
-                card.querySelector('h4').textContent = kpi.title;
-                card.querySelector('p').textContent = formatCurrency(kpi.value);
-                card.querySelector('p').className = `text-2xl font-bold ${kpi.color}`;
-                card.className = `p-4 rounded-lg shadow-sm text-center ${kpi.bg}`;
-                container.appendChild(card);
-            });
-        };
-
-        const renderShortcuts = () => {
-            const receitasContainer = document.getElementById('receitas-shortcuts');
-            const despesasContainer = document.getElementById('despesas-shortcuts');
-            receitasContainer.innerHTML = '';
-            despesasContainer.innerHTML = '';
-            
-            if(!AppState.currentPeriodStartDate) return;
-            const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
-            const template = document.getElementById('shortcut-card-template');
-
-            AppState.shortcuts.forEach(shortcut => {
-                const card = template.content.cloneNode(true).firstElementChild;
-                card.dataset.id = shortcut.id;
-                card.querySelector('.shortcut-icon').setAttribute('data-lucide', shortcut.icon || 'dollar-sign');
-                card.querySelector('.shortcut-name').textContent = shortcut.name;
-                const totalEl = card.querySelector('.shortcut-total');
-                const cardTextColor = shortcut.type === 'receita' ? 'text-green-700' : 'text-red-700';
-
-                if (shortcut.frequency === 'variavel') {
-                    const monthlyTxs = AppState.transactions.filter(t => {
-                        const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
-                        return !t.isDeleted && 
-                               t.shortcutId === shortcut.id &&
-                               tDate >= start &&
-                               tDate <= end
+                // --- SHORTCUTS & TRANSACTIONS RENDERING ---
+                renderShortcuts() {
+                    this.elements.revenueShortcuts.innerHTML = '';
+                    this.elements.expenseShortcuts.innerHTML = '';
+                    const period = this.getPeriod(this.state.currentDateForPeriod);
+                    this.state.shortcuts.forEach(shortcut => {
+                        let displayValue = this.formatCurrency(shortcut.defaultValue);
+                        if (shortcut.frequency === 'variable') {
+                            const accumulated = this.state.transactions
+                                .filter(t => t.shortcutId === shortcut.id && t.dueDate >= period.start && t.dueDate <= period.end)
+                                .reduce((sum, t) => sum + t.amount, 0);
+                            displayValue = this.formatCurrency(accumulated);
+                        }
+                        const shortcutCard = `
+                            <div data-shortcut-id="${shortcut.id}" class="shortcut-card bg-gray-700 p-3 rounded-lg flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-600 transition-colors relative group">
+                                <div class="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button class="edit-shortcut-btn p-1 rounded-full bg-gray-800 hover:bg-blue-600" data-id="${shortcut.id}"><i data-lucide="edit-2" class="w-3 h-3 pointer-events-none"></i></button>
+                                    <button class="delete-shortcut-btn p-1 rounded-full bg-gray-800 hover:bg-red-600" data-id="${shortcut.id}"><i data-lucide="trash-2" class="w-3 h-3 pointer-events-none"></i></button>
+                                </div>
+                                <i data-lucide="${shortcut.icon}" class="w-8 h-8 mb-2 ${shortcut.type === 'revenue' ? 'text-green-400' : 'text-red-400'}"></i>
+                                <p class="text-sm font-medium truncate w-full" title="${shortcut.name}">${shortcut.name}</p>
+                                <p class="text-xs text-gray-400">${displayValue}</p>
+                            </div>`;
+                        if (shortcut.type === 'revenue') {
+                            this.elements.revenueShortcuts.innerHTML += shortcutCard;
+                        } else {
+                            this.elements.expenseShortcuts.innerHTML += shortcutCard;
+                        }
                     });
-                    const monthlyTotal = monthlyTxs.reduce((sum, t) => sum + t.value, 0);
-                    totalEl.textContent = formatCurrency(monthlyTotal);
-                    totalEl.className = `text-sm font-bold mt-1 ${cardTextColor}`;
-                } else {
-                    totalEl.textContent = formatCurrency(shortcut.value);
-                    totalEl.className = `text-sm font-bold mt-1 ${cardTextColor}`;
-                }
+                },
 
-                const container = shortcut.type === 'receita' ? receitasContainer : despesasContainer;
-                container.appendChild(card);
-            });
-        };
+                renderTransactions() {
+                    const period = this.getPeriod(this.state.currentDateForPeriod);
+                    let transactionsToRender = this.state.transactions
+                        .filter(t => t.dueDate >= period.start && t.dueDate <= period.end)
+                        .filter(t => t.description.toLowerCase().includes(this.state.filterText.toLowerCase()));
+                    transactionsToRender.sort((a, b) => b.dueDate - a.dueDate);
 
-        const renderTransactionList = () => {
-            const container = document.getElementById('transaction-list');
-            container.innerHTML = '';
-            if (!AppState.currentPeriodStartDate) return;
-            const { start, end } = getPeriodBounds(AppState.currentPeriodStartDate);
-            const searchTerm = document.getElementById('transaction-search').value.toLowerCase();
-            const transactionsInPeriod = AppState.transactions.filter(t => {
-                const tDate = t.date.toDate ? t.date.toDate() : new Date(t.date);
-                const matchesSearch = t.description.toLowerCase().includes(searchTerm);
-                return !t.isDeleted && tDate >= start && tDate <= end && matchesSearch;
-            }).sort((a, b) => {
-                const aDate = a.date.toDate ? a.date.toDate() : new Date(a.date);
-                const bDate = b.date.toDate ? b.date.toDate() : new Date(b.date);
-                return bDate - aDate;
-            });
-
-            if (transactionsInPeriod.length === 0) {
-                container.innerHTML = `<tr><td colspan="5" class="text-center text-gray-500 py-8">Nenhuma transação encontrada para este período.</td></tr>`;
-                return;
-            }
-
-            const template = document.getElementById('transaction-row-template');
-            transactionsInPeriod.forEach(t => {
-                const row = template.content.cloneNode(true).firstElementChild;
-                row.dataset.id = t.id;
-                const checkbox = row.querySelector('.status-checkbox');
-                const statusText = row.querySelector('.status-text');
-                const typeIcon = row.querySelector('.type-icon');
-                const descriptionText = row.querySelector('.description-text');
-                const valueText = row.querySelector('.value-text');
-                const dateText = row.querySelector('.date-text');
-
-                checkbox.checked = (t.type === 'receita' && t.status === 'recebido') || (t.type === 'despesa' && t.status === 'pago');
-                statusText.textContent = t.status === 'recebido' || t.status === 'pago' ? 'Concluído' : 'Pendente';
-                statusText.className = `text-sm ${checkbox.checked ? 'text-green-600' : 'text-yellow-600'}`;
-                typeIcon.setAttribute('data-lucide', t.type === 'receita' ? 'trending-up' : 'trending-down');
-                typeIcon.className = `type-icon w-5 h-5 ${t.type === 'receita' ? 'text-green-600' : 'text-red-600'}`;
-                descriptionText.textContent = t.description;
-                valueText.textContent = formatCurrency(t.value);
-                valueText.className = `p-2 text-right value-text font-medium ${t.type === 'receita' ? 'text-green-600' : 'text-red-600'}`;
-                dateText.textContent = formatDate(t.date);
-
-                checkbox.addEventListener('change', () => handleToggleTransactionStatus(t.id));
-                row.querySelector('.edit-btn').addEventListener('click', () => openTransactionModal(t));
-                row.querySelector('.delete-btn').addEventListener('click', () => handleDeleteTransaction(t.id));
-
-                container.appendChild(row);
-            });
-            lucide.createIcons();
-        };
-
-        // =================================================================================
-        // LÓGICA DOS MODAIS E MANIPULAÇÃO DE DADOS
-        // =================================================================================
-
-        // -- Atalhos --
-        const openShortcutModal = async (shortcutType, shortcutId = null) => {
-            const isEditing = !!shortcutId;
-            const shortcut = isEditing ? AppState.shortcuts.find(s => s.id === shortcutId) : null;
-            const title = isEditing ? 'Editar Atalho' : `Novo Atalho de ${shortcutType === 'receita' ? 'Receita' : 'Despesa'}`;
-            const availableIcons = ["salad", "popcorn", "shopping-cart", "bus", "car", "home", "briefcase", "graduation-cap", "gift", "heart-pulse", "piggy-bank", "landmark"];
-            const html = `
-                <form id="shortcut-form" class="p-6 space-y-4">
-                    <h3 class="text-xl font-bold mb-4">${title}</h3>
-                    <input type="hidden" name="id" value="${shortcut?.id || ''}">
-                    <input type="hidden" name="type" value="${shortcut?.type || shortcutType}">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Nome</label>
-                        <input type="text" name="name" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${shortcut?.name || ''}" required>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Valor Padrão</label>
-                        <input type="text" name="value" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(shortcut?.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}" required>
-                    </div>
-                    <div>
-                        <span class="block text-sm font-medium text-gray-700">Frequência</span>
-                        <div id="frequency-selector" class="mt-2 flex gap-4">
-                            <label><input type="radio" name="frequency" value="variavel" ${(!shortcut || shortcut.frequency === 'variavel') ? 'checked' : ''}> Lançamento Variável</label>
-                            <label><input type="radio" name="frequency" value="fixo" ${(shortcut?.frequency === 'fixo') ? 'checked' : ''}> Lançamento Fixo</label>
-                        </div>
-                    </div>
-                     <div id="due-day-container" class="hidden">
-                        <label class="block text-sm font-medium text-gray-700">Dia do Vencimento (1-28)</label>
-                        <input type="number" name="dueDay" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${shortcut?.dueDay || '11'}" min="1" max="28">
-                    </div>
-                     <div>
-                        <span class="block text-sm font-medium text-gray-700">Ícone</span>
-                        <div class="mt-2 grid grid-cols-6 gap-2">
-                           ${availableIcons.map(icon => `
-                               <label class="p-2 border rounded-md flex justify-center items-center cursor-pointer has-[:checked]:bg-blue-100 has-[:checked]:border-blue-500">
-                                   <input type="radio" name="icon" value="${icon}" class="sr-only" ${shortcut?.icon === icon ? 'checked' : ''}>
-                                   <i data-lucide="${icon}"></i>
-                               </label>
-                           `).join('')}
-                        </div>
-                    </div>
-                    <div class="flex justify-end gap-4 pt-4">
-                        <button type="button" class="cancel-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600">Salvar</button>
-                    </div>
-                </form>`;
-            openModal(html, () => {
-                const dueDayContainer = document.getElementById('due-day-container');
-                const frequencySelector = document.getElementById('frequency-selector');
-
-                const toggleDueDay = () => {
-                    if (document.querySelector('input[name="frequency"]:checked').value === 'fixo') {
-                        dueDayContainer.classList.remove('hidden');
+                    if (transactionsToRender.length === 0) {
+                        this.elements.transactionsList.innerHTML = `<div class="text-center py-8 text-gray-500"><i data-lucide="inbox" class="w-12 h-12 mx-auto mb-2"></i><p>Nenhuma transação neste período.</p></div>`;
                     } else {
-                        dueDayContainer.classList.add('hidden');
+                        this.elements.transactionsList.innerHTML = `
+                            <div class="hidden md:grid grid-cols-12 gap-4 font-bold p-2 text-gray-400 text-sm">
+                                <div class="col-span-1"></div><div class="col-span-4">Descrição</div><div class="col-span-2 text-right">Valor</div><div class="col-span-2 text-center">Vencimento</div><div class="col-span-1 text-center">Tipo</div><div class="col-span-2 text-right">Ações</div>
+                            </div>
+                            ${transactionsToRender.map(t => this.createTransactionRow(t)).join('')}`;
                     }
-                };
-
-                frequencySelector.addEventListener('change', toggleDueDay);
-                toggleDueDay();
-
-                document.querySelectorAll('.currency-input').forEach(input => {
-                    input.addEventListener('input', () => formatCurrencyInput(input));
-                });
-                document.getElementById('shortcut-form').addEventListener('submit', handleSaveShortcut);
-                document.querySelector('.cancel-btn').addEventListener('click', closeModal);
-            });
-        };
-
-        // VERSÃO ULTRA-SIMPLIFICADA: SEM TRANSAÇÕES FUTURAS AUTOMÁTICAS
-        const handleSaveShortcut = async (e) => {
-            e.preventDefault();
-            const form = e.target;
-            const formData = new FormData(form);
-            const id = formData.get('id');
-            const isEditing = !!id;
-            
-            // Desabilitar o botão de salvar para evitar múltiplos cliques
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const originalText = submitBtn.textContent;
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Salvando...';
-            
-            const newShortcutData = {
-                name: formData.get('name'),
-                value: parseCurrency(formData.get('value')),
-                type: formData.get('type'),
-                frequency: formData.get('frequency'),
-                dueDay: parseInt(formData.get('dueDay')) || 11,
-                icon: formData.get('icon') || 'dollar-sign',
-            };
-
-            try {
-                console.log('Salvando atalho (versão simplificada):', newShortcutData);
+                    lucide.createIcons();
+                },
                 
-                if (isEditing) {
-                    await setDoc(doc(db, `users/${AppState.userId}/shortcuts`, id), newShortcutData);
-                    console.log('Atalho atualizado');
-                } else {
-                    const docRef = await addDoc(collection(db, `users/${AppState.userId}/shortcuts`), newShortcutData);
-                    console.log('Novo atalho criado com ID:', docRef.id);
-                }
-
-                // IMPORTANTE: NÃO criar transações futuras automaticamente
-                // O usuário pode criar manualmente quando precisar
+                createTransactionRow(t) {
+                    const isPaid = t.status === 'paid';
+                    const typeColor = t.type === 'revenue' ? 'text-green-400' : 'text-red-400';
+                    const descriptionClass = isPaid ? 'line-through text-gray-500' : 'text-gray-200';
+                    const valueClass = isPaid ? 'line-through text-gray-500' : typeColor;
+                    return `
+                        <div class="grid grid-cols-2 md:grid-cols-12 gap-4 items-center p-3 rounded-lg hover:bg-gray-700/50 border-b border-gray-700 last:border-b-0">
+                            <div class="md:col-span-1 flex items-center justify-start"><input type="checkbox" data-id="${t.id}" class="transaction-status-check h-5 w-5 rounded bg-gray-600 border-gray-500 text-blue-500 focus:ring-blue-600 cursor-pointer" ${isPaid ? 'checked' : ''}></div>
+                            <div class="md:col-span-4 flex items-center space-x-2"><span class="md:hidden font-bold text-gray-400">Desc:</span><p class="${descriptionClass} font-medium">${t.description}</p></div>
+                            <div class="md:col-span-2 flex justify-between md:justify-end items-center"><span class="md:hidden font-bold text-gray-400">Valor:</span><p class="${valueClass} font-bold text-right">${this.formatCurrency(t.amount)}</p></div>
+                            <div class="md:col-span-2 flex justify-between md:justify-center items-center"><span class="md:hidden font-bold text-gray-400">Venc:</span><p class="text-gray-400 text-sm text-center">${t.dueDate.toLocaleDateString('pt-BR')}</p></div>
+                            <div class="md:col-span-1 flex justify-between md:justify-center items-center"><span class="md:hidden font-bold text-gray-400">Tipo:</span><i data-lucide="${t.type === 'revenue' ? 'arrow-down' : 'arrow-up'}" class="${typeColor} w-5 h-5"></i></div>
+                            <div class="col-span-2 md:col-span-2 flex justify-end items-center space-x-2">
+                                <button class="edit-transaction-btn p-2 text-gray-400 hover:text-blue-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${t.id}"><i data-lucide="edit-2" class="w-4 h-4 pointer-events-none"></i></button>
+                                <button class="delete-transaction-btn p-2 text-gray-400 hover:text-red-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${t.id}"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                            </div>
+                        </div>`;
+                },
                 
-                showToast(`Atalho ${isEditing ? 'atualizado' : 'salvo'} com sucesso!`, 'success');
-                closeModal();
+                // --- EVENT LISTENERS ---
+                setupEventListeners() {
+                    // This function should be called only once after the user has logged in
+                    // to avoid attaching multiple listeners.
+                    if (this.listenersAttached) return;
 
-            } catch (error) {
-                console.error("Erro ao salvar atalho:", error);
-                showToast('Erro ao salvar o atalho: ' + error.message, 'error');
-            } finally {
-                // Sempre reabilitar o botão, mesmo em caso de erro
-                submitBtn.disabled = false;
-                submitBtn.textContent = originalText;
-            }
-        };
+                    // Main navigation
+                    this.elements.prevPeriodBtn.addEventListener('click', () => this.changePeriod(-1));
+                    this.elements.nextPeriodBtn.addEventListener('click', () => this.changePeriod(1));
+                    this.elements.searchInput.addEventListener('input', e => { this.state.filterText = e.target.value; this.renderTransactions(); });
+                    
+                    // Tab navigation
+                    this.elements.tabDashboard.addEventListener('click', () => this.switchView('dashboard'));
+                    this.elements.tabConsultoria.addEventListener('click', () => this.switchView('consultoria-list'));
 
-        const handleShortcutClick = (shortcutId) => {
-            const shortcut = AppState.shortcuts.find(s => s.id === shortcutId);
-            if (!shortcut) return;
-            
-            // Para atalhos fixos, criar uma transação manual baseada no atalho
-            openTransactionModal({
-                description: shortcut.name,
-                value: shortcut.value,
-                type: shortcut.type,
-                date: new Date().toISOString().split('T')[0],
-                shortcutId: shortcut.id
-            });
-        };
+                    // Modal Buttons
+                    document.getElementById('add-transaction-btn').addEventListener('click', () => this.openTransactionModal());
+                    document.getElementById('add-shortcut-btn').addEventListener('click', () => this.openShortcutModal());
+                    document.getElementById('add-client-btn').addEventListener('click', () => this.openClientModal());
+                    document.getElementById('add-slaughter-btn').addEventListener('click', () => this.openSlaughterModal());
+                    document.getElementById('back-to-clients-btn').addEventListener('click', () => this.switchView('consultoria-list'));
+                    
+                    document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => this.closeAllModals()));
+                    
+                    // Form Submissions
+                    this.elements.transactionForm.addEventListener('submit', e => this.handleTransactionFormSubmit(e));
+                    this.elements.shortcutForm.addEventListener('submit', e => this.handleShortcutFormSubmit(e));
+                    this.elements.clientForm.addEventListener('submit', e => this.handleClientFormSubmit(e));
+                    this.elements.slaughterForm.addEventListener('submit', e => this.handleSlaughterFormSubmit(e));
 
-        const handleDeleteShortcut = (shortcutId) => {
-            const msg = "Tem certeza que deseja excluir este atalho? Esta ação é irreversível.";
-            openConfirmationModal(msg, async () => {
-                try {
-                    await deleteDoc(doc(db, `users/${AppState.userId}/shortcuts`, shortcutId));
-                    showToast('Atalho excluído com sucesso!', 'success');
-                } catch (error) {
-                    console.error("Erro ao excluir atalho:", error);
-                    showToast('Erro ao excluir o atalho.', 'error');
+                    this.elements.shortcutForm.elements['shortcut-frequency'].addEventListener('change', e => {
+                        if (e.target.value === 'fixed') {
+                            this.elements.shortcutDueDaySection.classList.remove('hidden');
+                        } else {
+                            this.elements.shortcutDueDaySection.classList.add('hidden');
+                        }
+                    });
+
+                    // Event delegation for dynamic elements
+                    document.body.addEventListener('click', e => {
+                        if(!this.state.currentUser) return; // Don't process clicks if not logged in
+                        const button = e.target.closest('button, .shortcut-card');
+                        if (!button) return;
+                        const id = button.dataset.id;
+                        
+                        // Shortcut actions
+                        if (button.matches('.edit-shortcut-btn')) this.openShortcutModal(id);
+                        if (button.matches('.delete-shortcut-btn')) this.confirmDeleteShortcut(id);
+                        if (button.matches('.shortcut-card')) this.openTransactionModal(null, button.dataset.shortcutId);
+
+                        // Transaction actions
+                        if (button.matches('.edit-transaction-btn')) this.openTransactionModal(id);
+                        if (button.matches('.delete-transaction-btn')) this.confirmDeleteTransaction(id);
+
+                         // Client actions
+                        if (button.matches('.edit-client-btn')) this.openClientModal(id);
+                        if (button.matches('.view-slaughters-btn')) this.switchView('consultoria-detail', id);
+                        
+                        // Slaughter actions
+                        if (button.matches('.edit-slaughter-btn')) this.openSlaughterModal(id);
+                        if (button.matches('.delete-slaughter-btn')) this.confirmDeleteSlaughter(id);
+                    });
+                    
+                    document.body.addEventListener('change', e => { 
+                        if(!this.state.currentUser) return;
+                        if (e.target.matches('.transaction-status-check')) this.toggleTransactionStatus(e.target.dataset.id, e.target.checked); 
+                    });
+                    
+                    this.elements.iconSelection.addEventListener('click', e => {
+                        const iconButton = e.target.closest('.icon-btn');
+                        if (iconButton) {
+                            document.querySelectorAll('.icon-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-blue-500'));
+                            iconButton.classList.add('ring-2', 'ring-blue-500');
+                            document.getElementById('shortcut-icon').value = iconButton.dataset.icon;
+                        }
+                    });
+                    this.listenersAttached = true;
+                },
+
+                // --- MODAL & FORM LOGIC ---
+                openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); },
+                closeAllModals() { document.querySelectorAll('.modal').forEach(modal => modal.classList.add('hidden')); },
+
+                // Transaction Modal Logic
+                openTransactionModal(id = null, shortcutId = null) {
+                    const form = this.elements.transactionForm;
+                    form.reset();
+                    form.elements['transaction-id'].value = '';
+                    this.elements.installmentsSection.style.display = 'block';
+
+                    if (id) {
+                        const transaction = this.state.transactions.find(t => t.id === id); if (!transaction) return;
+                        this.elements.transactionModalTitle.textContent = 'Editar Transação';
+                        form.elements['transaction-id'].value = transaction.id;
+                        form.elements['transaction-description'].value = transaction.description;
+                        form.elements['transaction-amount'].value = transaction.amount;
+                        form.elements['transaction-due-date'].value = this.formatDateForInput(transaction.dueDate);
+                        form.elements['transaction-type'].value = transaction.type;
+                        form.elements['transaction-status'].value = transaction.status;
+                        form.elements['transaction-shortcut-id'].value = transaction.shortcutId || '';
+                        this.elements.installmentsSection.style.display = 'none';
+                    } else if (shortcutId) {
+                        const shortcut = this.state.shortcuts.find(s => s.id === shortcutId); if (!shortcut) return;
+                        this.elements.transactionModalTitle.textContent = `Lançar: ${shortcut.name}`;
+                        form.elements['transaction-description'].value = shortcut.name;
+                        form.elements['transaction-amount'].value = shortcut.defaultValue;
+                        form.elements['transaction-type'].value = shortcut.type;
+                        form.elements['transaction-due-date'].value = this.formatDateForInput(new Date());
+                        form.elements['transaction-shortcut-id'].value = shortcut.id;
+                    } else {
+                        this.elements.transactionModalTitle.textContent = 'Nova Transação';
+                        form.elements['transaction-due-date'].value = this.formatDateForInput(new Date());
+                    }
+                    this.openModal('transaction-modal');
+                },
+
+                async handleTransactionFormSubmit(e) {
+                    e.preventDefault();
+                    const form = e.target.elements;
+                    const dueDateValue = form['transaction-due-date'].value;
+                    if (!dueDateValue) {
+                        this.showMessage('Erro de Validação', 'O campo de data (Vencimento/Recebimento) é obrigatório.', 'error', [{ text: 'OK', class: 'bg-blue-600 hover:bg-blue-700', action: () => {} }]);
+                        return;
+                    }
+
+                    const id = form['transaction-id'].value;
+                    const amount = parseFloat(form['transaction-amount'].value);
+                    const installments = parseInt(form['transaction-installments'].value) || 1;
+                    const baseDueDate = new Date(dueDateValue + 'T12:00:00');
+
+                    if (id) { // Editing existing transaction
+                        const index = this.state.transactions.findIndex(t => t.id === id);
+                        if (index !== -1) { 
+                            const updatedTransaction = { 
+                                ...this.state.transactions[index],
+                                description: form['transaction-description'].value, 
+                                amount, 
+                                dueDate: baseDueDate, 
+                                type: form['transaction-type'].value, 
+                                status: form['transaction-status'].value 
+                            };
+                            this.state.transactions[index] = updatedTransaction;
+                            await this.saveDoc('transactions', id, updatedTransaction);
+                        }
+                    } else { // Creating new transaction(s)
+                        const totalAmount = amount;
+                        const installmentAmount = parseFloat((totalAmount / installments).toFixed(2));
+                        const firstInstallmentAmount = parseFloat((totalAmount - (installmentAmount * (installments - 1))).toFixed(2));
+                        
+                        const baseTransaction = { 
+                            description: form['transaction-description'].value, 
+                            type: form['transaction-type'].value, 
+                            status: form['transaction-status'].value, 
+                            shortcutId: form['transaction-shortcut-id'].value || null 
+                        };
+                        const installmentGroupId = installments > 1 ? crypto.randomUUID() : null;
+                        const batch = writeBatch(db);
+
+                        for (let i = 0; i < installments; i++) {
+                            const newDate = new Date(baseDueDate); newDate.setMonth(baseDueDate.getMonth() + i);
+                            const newId = crypto.randomUUID();
+                            const newTransaction = { 
+                                ...baseTransaction, 
+                                id: newId, 
+                                amount: i === 0 ? firstInstallmentAmount : installmentAmount, 
+                                dueDate: newDate, 
+                                description: installments > 1 ? `${baseTransaction.description} (${i+1}/${installments})` : baseTransaction.description, 
+                                installmentGroupId: installmentGroupId 
+                            };
+                            this.state.transactions.push(newTransaction);
+                            const { id: _, ...dataToSave } = newTransaction; // Remove local id before saving
+                            batch.set(doc(db, `users/${this.state.currentUser.uid}/transactions`, newId), dataToSave);
+                        }
+                        await batch.commit();
+                    }
+                    this.updateUI(); this.closeAllModals();
+                },
+
+                async toggleTransactionStatus(id, isPaid) {
+                    const transaction = this.state.transactions.find(t => t.id === id);
+                    if (transaction) { 
+                        transaction.status = isPaid ? 'paid' : 'pending'; 
+                        await this.saveDoc('transactions', id, transaction);
+                        this.updateUI(); 
+                    }
+                },
+
+                async confirmDeleteTransaction(id) {
+                    const transaction = this.state.transactions.find(t => t.id === id); if (!transaction) return;
+                    
+                    if (transaction.installmentGroupId) {
+                        this.showMessage('Excluir Parcela', 'Esta transação faz parte de um parcelamento. Como deseja prosseguir?', 'warning', [
+                                { text: 'Excluir Apenas Esta', class: 'bg-yellow-600 hover:bg-yellow-700', action: async () => {
+                                    this.state.transactions = this.state.transactions.filter(t => t.id !== id);
+                                    await this.deleteDoc('transactions', id);
+                                    this.updateUI(); this.closeAllModals();
+                                }},
+                                { text: 'Excluir Esta e Futuras', class: 'bg-red-600 hover:bg-red-700', action: async () => {
+                                    const toDelete = this.state.transactions.filter(t => t.installmentGroupId === transaction.installmentGroupId && t.dueDate >= transaction.dueDate);
+                                    const batch = writeBatch(db);
+                                    toDelete.forEach(t => batch.delete(doc(db, `users/${this.state.currentUser.uid}/transactions`, t.id)));
+                                    await batch.commit();
+                                    
+                                    this.state.transactions = this.state.transactions.filter(t => !toDelete.some(del => del.id === t.id));
+                                    this.updateUI(); this.closeAllModals();
+                                }},
+                                { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
+                            ]
+                        );
+                    } else {
+                        this.showMessage('Excluir Transação', `Deseja realmente excluir a transação "${transaction.description}"?`, 'warning', [
+                                { text: 'Confirmar Exclusão', class: 'bg-red-600 hover:bg-red-700', action: async () => {
+                                    this.state.transactions = this.state.transactions.filter(t => t.id !== id);
+                                    await this.deleteDoc('transactions', id);
+                                    this.updateUI(); this.closeAllModals();
+                                }},
+                                { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
+                            ]
+                        );
+                    }
+                },
+                
+                // Shortcut Logic
+                openShortcutModal(id = null) {
+                    const form = this.elements.shortcutForm;
+                    form.reset();
+                    form.elements['shortcut-id'].value = '';
+                    this.elements.shortcutEffectiveDateSection.classList.add('hidden');
+                    this.elements.shortcutDueDaySection.classList.add('hidden');
+                    this.populateIcons();
+
+                    if(id) { // Editing existing shortcut
+                        const shortcut = this.state.shortcuts.find(s => s.id === id); if(!shortcut) return;
+                        this.elements.shortcutModalTitle.textContent = 'Editar Atalho';
+                        form.elements['shortcut-id'].value = shortcut.id; 
+                        form.elements['shortcut-name'].value = shortcut.name; 
+                        form.elements['shortcut-type'].value = shortcut.type;
+                        form.elements['shortcut-frequency'].value = shortcut.frequency; 
+                        form.elements['shortcut-value'].value = shortcut.defaultValue; 
+                        form.elements['shortcut-icon'].value = shortcut.icon;
+                        const iconBtn = this.elements.iconSelection.querySelector(`[data-icon="${shortcut.icon}"]`);
+                        if(iconBtn) iconBtn.classList.add('ring-2', 'ring-blue-500');
+
+                        if (shortcut.frequency === 'fixed') {
+                            this.elements.shortcutDueDaySection.classList.remove('hidden');
+                            this.elements.shortcutEffectiveDateSection.classList.remove('hidden');
+                            form.elements['shortcut-due-day'].value = shortcut.dueDay || 1;
+                            form.elements['shortcut-effective-date'].value = this.formatDateForInput(new Date());
+                        }
+
+                    } else { // Creating new shortcut
+                        this.elements.shortcutModalTitle.textContent = 'Novo Atalho';
+                        form.elements['shortcut-due-day'].value = 1; // Default due day
+                        const firstIcon = this.elements.iconSelection.querySelector('.icon-btn');
+                        if(firstIcon) { firstIcon.classList.add('ring-2', 'ring-blue-500'); form.elements['shortcut-icon'].value = firstIcon.dataset.icon; }
+                    }
+                    this.openModal('shortcut-modal');
+                },
+
+                async handleShortcutFormSubmit(e) {
+                    e.preventDefault();
+                    const form = e.target.elements;
+                    const id = form['shortcut-id'].value;
+                    const shortcutData = { 
+                        name: form['shortcut-name'].value, 
+                        type: form['shortcut-type'].value, 
+                        frequency: form['shortcut-frequency'].value, 
+                        defaultValue: parseFloat(form['shortcut-value'].value), 
+                        icon: form['shortcut-icon'].value,
+                        dueDay: parseInt(form['shortcut-due-day'].value) || 1,
+                    };
+                    
+                    if (id) { // Update logic
+                        const index = this.state.shortcuts.findIndex(s => s.id === id); if (index === -1) return;
+                        const originalShortcut = this.state.shortcuts[index];
+                        const updatedShortcut = { ...originalShortcut, ...shortcutData };
+                        this.state.shortcuts[index] = updatedShortcut;
+                        await this.saveDoc('shortcuts', id, updatedShortcut); // `updatedShortcut` has the id property
+                         this.updateUI(); this.closeAllModals();
+
+                    } else { // Create logic
+                        const newId = crypto.randomUUID();
+                        const newShortcut = { id: newId, ...shortcutData };
+                        this.state.shortcuts.push(newShortcut);
+                        await this.saveDoc('shortcuts', newId, shortcutData); // save data without local ID
+                        await this.generateFixedTransactionsForCurrentPeriod(true); 
+                        this.updateUI(); this.closeAllModals();
+                    }
+                },
+                
+                async confirmDeleteShortcut(id) {
+                    const shortcut = this.state.shortcuts.find(s => s.id === id); if (!shortcut) return;
+                    const message = shortcut.frequency === 'fixed'
+                        ? `Isto também excluirá todas as transações futuras (pendentes) geradas por este atalho. O histórico passado será mantido.`
+                        : `As transações existentes não serão afetadas.`;
+                    
+                    this.showMessage('Excluir Atalho', `Deseja realmente excluir o atalho "${shortcut.name}"? ${message}`, 'warning', [
+                            { text: 'Confirmar Exclusão', class: 'bg-red-600 hover:bg-red-700', action: async () => {
+                                if (shortcut.frequency === 'fixed') {
+                                    const referenceDate = new Date(); referenceDate.setDate(1); referenceDate.setHours(0,0,0,0);
+                                    
+                                    const q = query(collection(db, `users/${this.state.currentUser.uid}/transactions`), 
+                                        where("shortcutId", "==", id),
+                                        where("isAutoGenerated", "==", true),
+                                        where("status", "==", "pending")
+                                    );
+                                    const querySnapshot = await getDocs(q);
+                                    const batch = writeBatch(db);
+                                    const idsToDelete = [];
+                                    querySnapshot.forEach((doc) => {
+                                        if (doc.data().dueDate.toDate() >= referenceDate) {
+                                            batch.delete(doc.ref);
+                                            idsToDelete.push(doc.id);
+                                        }
+                                    });
+                                    await batch.commit();
+                                    this.state.transactions = this.state.transactions.filter(t => !idsToDelete.includes(t.id));
+                                }
+                                this.state.shortcuts = this.state.shortcuts.filter(s => s.id !== id);
+                                await this.deleteDoc('shortcuts', id);
+                                this.updateUI(); this.closeAllModals();
+                            }},
+                            { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
+                        ]
+                    );
+                },
+
+                // --- ADVANCED LOGIC: FIXED & BALANCE TRANSACTIONS ---
+                async generateFixedTransactionsForCurrentPeriod(forceSave = false) {
+                    let hasChanged = false;
+                    const period = this.getPeriod(this.state.currentDateForPeriod);
+                    const batch = writeBatch(db);
+
+                    this.state.shortcuts.filter(s => s.frequency === 'fixed').forEach(shortcut => {
+                        const dueDay = shortcut.dueDay || 1;
+                        const transactionDate = new Date(period.start.getFullYear(), period.start.getMonth(), dueDay);
+                        
+                        const existing = this.state.transactions.find(t => 
+                            t.shortcutId === shortcut.id && 
+                            t.dueDate.getFullYear() === transactionDate.getFullYear() &&
+                            t.dueDate.getMonth() === transactionDate.getMonth()
+                        );
+
+                        if (!existing) {
+                            hasChanged = true;
+                            const newId = crypto.randomUUID();
+                            const newTransaction = { 
+                                id: newId, 
+                                description: shortcut.name, 
+                                amount: shortcut.defaultValue, 
+                                dueDate: transactionDate, 
+                                type: shortcut.type, 
+                                status: 'pending', 
+                                shortcutId: shortcut.id, 
+                                isAutoGenerated: true 
+                            };
+                            this.state.transactions.push(newTransaction);
+                            const { id: _, ...dataToSave } = newTransaction; // Don't save local ID
+                            batch.set(doc(db, `users/${this.state.currentUser.uid}/transactions`, newId), dataToSave);
+                        }
+                    });
+                    
+                    if (hasChanged || forceSave) {
+                        await batch.commit();
+                    }
+                },
+
+                async generateBalanceTransferForCurrentPeriod() {
+                     // This logic should be re-evaluated for a multi-user context.
+                     // For now, it will work based on the loaded data.
+                },
+                
+                 // --- CONSULTORIA MODULE ---
+                renderClientList() {
+                    const container = this.elements.clientListContainer;
+                    if(this.state.clients.length === 0){
+                        container.innerHTML = `<div class="text-center py-12 text-gray-500 col-span-full"><i data-lucide="users" class="w-16 h-16 mx-auto mb-4"></i><p>Nenhum cliente cadastrado.</p><p>Clique em "Novo Cliente" para começar.</p></div>`;
+                        return;
+                    }
+                    container.innerHTML = this.state.clients.map(client => `
+                        <div class="bg-gray-800 p-4 rounded-lg shadow-lg flex flex-col justify-between">
+                            <div>
+                                <h3 class="text-xl font-bold text-white">${client.name}</h3>
+                                <p class="text-gray-400">${this.formatCurrency(client.rate)} / cabeça</p>
+                            </div>
+                            <div class="mt-4 flex space-x-2">
+                                <button class="edit-client-btn flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-id="${client.id}">Editar</button>
+                                <button class="view-slaughters-btn flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors" data-id="${client.id}">Visualizar Abates</button>
+                            </div>
+                        </div>
+                    `).join('');
+                },
+                
+                renderSlaughterDetail() {
+                    const client = this.state.clients.find(c => c.id === this.state.currentClientId);
+                    if (!client) {
+                        this.switchView('consultoria-list');
+                        return;
+                    }
+
+                    this.elements.slaughterClientName.textContent = client.name;
+                    this.elements.slaughterClientRate.textContent = `${this.formatCurrency(client.rate)} / cabeça`;
+
+                    const container = this.elements.slaughterListContainer;
+                    const period = this.getPeriod(this.state.currentDateForPeriod);
+                    const slaughtersInPeriod = this.state.slaughters
+                        .filter(s => s.clientId === client.id && s.date >= period.start && s.date <= period.end)
+                        .sort((a,b) => b.date - a.date);
+
+                    if (slaughtersInPeriod.length === 0) {
+                        container.innerHTML = `<div class="text-center py-8 text-gray-500"><i data-lucide="archive" class="w-12 h-12 mx-auto mb-2"></i><p>Nenhum abate registrado para este cliente no período.</p></div>`;
+                        return;
+                    }
+
+                    container.innerHTML = `
+                        <div class="hidden md:grid grid-cols-5 gap-4 font-bold p-2 text-gray-400 text-sm">
+                            <div>Data</div>
+                            <div class="text-center">Cabeças</div>
+                            <div class="text-right">Receita Total</div>
+                            <div class="text-right">Custo Total</div>
+                            <div class="text-right">Ações</div>
+                        </div>
+                        ${slaughtersInPeriod.map(s => {
+                            const totalRevenue = (s.heads * client.rate) + (s.revenueTravel || 0);
+                            const totalCost = (s.costTravel || 0) + (s.costDaily || 0);
+                            return `
+                                <div class="grid grid-cols-2 md:grid-cols-5 gap-4 items-center p-3 rounded-lg hover:bg-gray-700/50 border-b border-gray-700 last:border-b-0">
+                                    <div>${s.date.toLocaleDateString('pt-BR')}</div>
+                                    <div class="text-center">${s.heads}</div>
+                                    <div class="text-right text-green-400">${this.formatCurrency(totalRevenue)}</div>
+                                    <div class="text-right text-red-400">${this.formatCurrency(totalCost)}</div>
+                                    <div class="flex justify-end space-x-2">
+                                        <button class="edit-slaughter-btn p-2 text-gray-400 hover:text-blue-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${s.id}"><i data-lucide="edit-2" class="w-4 h-4 pointer-events-none"></i></button>
+                                        <button class="delete-slaughter-btn p-2 text-gray-400 hover:text-red-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${s.id}"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    `;
+                },
+
+                openClientModal(id = null) {
+                    const form = this.elements.clientForm;
+                    form.reset();
+                    if(id) {
+                        const client = this.state.clients.find(c => c.id === id);
+                        if(!client) return;
+                        this.elements.clientModalTitle.textContent = 'Editar Cliente';
+                        form.elements['client-id'].value = client.id;
+                        form.elements['client-name'].value = client.name;
+                        form.elements['client-rate'].value = client.rate;
+                    } else {
+                        this.elements.clientModalTitle.textContent = 'Novo Cliente';
+                        form.elements['client-id'].value = '';
+                    }
+                    this.openModal('client-modal');
+                },
+
+                async handleClientFormSubmit(e) {
+                    e.preventDefault();
+                    const form = e.target.elements;
+                    const id = form['client-id'].value;
+                    const clientData = {
+                        name: form['client-name'].value,
+                        rate: parseFloat(form['client-rate'].value)
+                    };
+
+                    if(id) {
+                        const index = this.state.clients.findIndex(c => c.id === id);
+                        if(index > -1) {
+                            const updatedClient = {...this.state.clients[index], ...clientData};
+                            this.state.clients[index] = updatedClient;
+                            await this.saveDoc('clients', id, clientData);
+                        }
+                    } else {
+                        const newId = crypto.randomUUID();
+                        this.state.clients.push({id: newId, ...clientData});
+                        await this.saveDoc('clients', newId, clientData);
+                    }
+                    this.updateUI();
+                    this.closeAllModals();
+                },
+                
+                openSlaughterModal(id = null) {
+                    const form = this.elements.slaughterForm;
+                    form.reset();
+                    form.elements['slaughter-client-id'].value = this.state.currentClientId;
+
+                    if(id){
+                        const slaughter = this.state.slaughters.find(s => s.id === id);
+                        if(!slaughter) return;
+                        this.elements.slaughterModalTitle.textContent = "Editar Abate";
+                        form.elements['slaughter-id'].value = slaughter.id;
+                        form.elements['slaughter-date'].value = this.formatDateForInput(slaughter.date);
+                        form.elements['slaughter-heads'].value = slaughter.heads;
+                        form.elements['slaughter-revenue-travel'].value = slaughter.revenueTravel || '';
+                        form.elements['slaughter-cost-travel'].value = slaughter.costTravel || '';
+                        form.elements['slaughter-cost-daily'].value = slaughter.costDaily || '';
+                    } else {
+                        this.elements.slaughterModalTitle.textContent = "Novo Abate";
+                        form.elements['slaughter-id'].value = '';
+                        form.elements['slaughter-date'].value = this.formatDateForInput(new Date());
+                    }
+                    this.openModal('slaughter-modal');
+                },
+
+                async handleSlaughterFormSubmit(e) {
+                    e.preventDefault();
+                    const form = e.target.elements;
+                    const id = form['slaughter-id'].value;
+                    const clientId = form['slaughter-client-id'].value;
+                    const client = this.state.clients.find(c => c.id === clientId);
+                    if(!client) return;
+
+                    const slaughterData = {
+                        clientId: clientId,
+                        date: new Date(form['slaughter-date'].value + "T12:00:00"),
+                        heads: parseInt(form['slaughter-heads'].value),
+                        revenueTravel: parseFloat(form['slaughter-revenue-travel'].value) || 0,
+                        costTravel: parseFloat(form['slaughter-cost-travel'].value) || 0,
+                        costDaily: parseFloat(form['slaughter-cost-daily'].value) || 0,
+                    };
+                    
+                    const slaughterId = id || crypto.randomUUID();
+                    const batch = writeBatch(db);
+
+                    // Remove old linked transactions if editing
+                    if(id) {
+                        const q = query(collection(db, `users/${this.state.currentUser.uid}/transactions`), where("slaughterId", "==", id));
+                        const snapshot = await getDocs(q);
+                        snapshot.forEach(doc => batch.delete(doc.ref));
+                        this.state.transactions = this.state.transactions.filter(t => t.slaughterId !== id);
+                    }
+                    
+                    // Create new linked transactions
+                    const mainRevenue = slaughterData.heads * client.rate + slaughterData.revenueTravel;
+                    const revenueTransId = crypto.randomUUID();
+                    const revenueTrans = { description: `Abate - ${client.name}`, amount: mainRevenue, dueDate: slaughterData.date, type: 'revenue', status: 'pending', slaughterId: slaughterId };
+                    this.state.transactions.push({id: revenueTransId, ...revenueTrans});
+                    batch.set(doc(db, `users/${this.state.currentUser.uid}/transactions`, revenueTransId), revenueTrans);
+                    
+                    if(slaughterData.costTravel > 0) {
+                        const costTravelTransId = crypto.randomUUID();
+                        const costTravelTrans = { description: `Custo Deslocamento - ${client.name}`, amount: slaughterData.costTravel, dueDate: slaughterData.date, type: 'expense', status: 'pending', slaughterId: slaughterId };
+                        this.state.transactions.push({id: costTravelTransId, ...costTravelTrans});
+                        batch.set(doc(db, `users/${this.state.currentUser.uid}/transactions`, costTravelTransId), costTravelTrans);
+                    }
+                    if(slaughterData.costDaily > 0) {
+                        const costDailyTransId = crypto.randomUUID();
+                        const costDailyTrans = { description: `Custo Diarista - ${client.name}`, amount: slaughterData.costDaily, dueDate: slaughterData.date, type: 'expense', status: 'pending', slaughterId: slaughterId };
+                        this.state.transactions.push({id: costDailyTransId, ...costDailyTrans});
+                        batch.set(doc(db, `users/${this.state.currentUser.uid}/transactions`, costDailyTransId), costDailyTrans);
+                    }
+
+                    // Save or update slaughter
+                    if(id) {
+                        const index = this.state.slaughters.findIndex(s => s.id === id);
+                        const updatedSlaughter = { ...this.state.slaughters[index], ...slaughterData };
+                        this.state.slaughters[index] = updatedSlaughter;
+                        batch.set(doc(db, `users/${this.state.currentUser.uid}/slaughters`, id), slaughterData);
+                    } else {
+                        this.state.slaughters.push({id: slaughterId, ...slaughterData});
+                        batch.set(doc(db, `users/${this.state.currentUser.uid}/slaughters`, slaughterId), slaughterData);
+                    }
+
+                    await batch.commit();
+                    this.updateUI();
+                    this.closeAllModals();
+                },
+
+                async confirmDeleteSlaughter(id){
+                     this.showMessage('Excluir Abate', `Deseja realmente excluir este registro de abate? Todas as transações financeiras vinculadas (receitas e despesas) também serão removidas.`, 'warning', [
+                            { text: 'Confirmar Exclusão', class: 'bg-red-600 hover:bg-red-700', action: async () => {
+                                const batch = writeBatch(db);
+                                
+                                // Mark slaughter for deletion
+                                batch.delete(doc(db, `users/${this.state.currentUser.uid}/slaughters`, id));
+                                this.state.slaughters = this.state.slaughters.filter(s => s.id !== id);
+                                
+                                // Find and mark linked transactions for deletion
+                                const q = query(collection(db, `users/${this.state.currentUser.uid}/transactions`), where("slaughterId", "==", id));
+                                const snapshot = await getDocs(q);
+                                snapshot.forEach(doc => batch.delete(doc.ref));
+                                this.state.transactions = this.state.transactions.filter(t => t.slaughterId !== id);
+
+                                await batch.commit();
+                                this.updateUI();
+                                this.closeAllModals();
+                            }},
+                            { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
+                        ]
+                    );
+                },
+
+
+                // --- DYNAMIC MESSAGE MODAL ---
+                showMessage(title, message, type = 'info', buttons) {
+                    this.elements.confirmationTitle.textContent = title;
+                    this.elements.confirmationMessage.innerHTML = message; 
+                    this.elements.confirmationButtons.innerHTML = '';
+
+                    const icons = {
+                        warning: { bg: 'bg-yellow-200', text: 'text-yellow-600', icon: 'alert-triangle' },
+                        error: { bg: 'bg-red-200', text: 'text-red-600', icon: 'alert-circle' },
+                        info: { bg: 'bg-blue-200', text: 'text-blue-600', icon: 'info' }
+                    };
+                    const selectedIcon = icons[type] || icons.info;
+                    this.elements.confirmationIcon.className = `mx-auto flex items-center justify-center h-12 w-12 rounded-full ${selectedIcon.bg} mb-4`;
+                    this.elements.confirmationIcon.innerHTML = `<i data-lucide="${selectedIcon.icon}" class="h-6 w-6 ${selectedIcon.text}"></i>`;
+                    
+                    buttons.forEach(btnInfo => {
+                        const button = document.createElement('button');
+                        button.textContent = btnInfo.text;
+                        button.className = `w-full sm:w-auto inline-flex justify-center rounded-md border border-transparent px-4 py-2 text-base font-medium text-white shadow-sm focus:outline-none ${btnInfo.class}`;
+                        button.onclick = btnInfo.action;
+                        this.elements.confirmationButtons.appendChild(button);
+                    });
+                    
+                    lucide.createIcons();
+                    this.openModal('confirmation-modal');
+                },
+
+                // --- HELPER FUNCTIONS ---
+                formatCurrency(value) { return (value || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); },
+                formatDateForInput(date) { const d = new Date(date); let month = '' + (d.getMonth() + 1), day = '' + d.getDate(); if (month.length < 2) month = '0' + month; if (day.length < 2) day = '0' + day; return [d.getFullYear(), month, day].join('-'); },
+                populateIcons() {
+                    this.elements.iconSelection.innerHTML = this.iconList.map(icon => `<button type="button" class="icon-btn p-2 rounded-lg bg-gray-600 hover:bg-gray-500 flex items-center justify-center" data-icon="${icon}"><i data-lucide="${icon}" class="w-6 h-6 pointer-events-none"></i></button>`).join('');
                 }
-            });
-        };
-
-        // -- Transações --
-        const openTransactionModal = (transaction = null) => {
-            const isEditing = !!transaction?.id;
-            const title = isEditing ? 'Editar Transação' : 'Nova Transação';
-            const today = new Date().toISOString().split('T')[0];
-            const html = `
-                <form id="transaction-form" class="p-6 space-y-4">
-                    <h3 class="text-xl font-bold mb-4">${title}</h3>
-                    <input type="hidden" name="id" value="${transaction?.id || ''}">
-                    <input type="hidden" name="shortcutId" value="${transaction?.shortcutId || ''}">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Descrição</label>
-                        <input type="text" name="description" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${transaction?.description || ''}" required>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Valor</label>
-                        <input type="text" name="value" class="currency-input mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${(transaction?.value || 0).toLocaleString('pt-BR', {minimumFractionDigits: 2})}" required>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Data</label>
-                        <input type="date" name="date" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2" value="${transaction?.date ? (transaction.date.toDate ? transaction.date.toDate() : new Date(transaction.date)).toISOString().split('T')[0] : today}" required>
-                    </div>
-                    <div>
-                        <span class="block text-sm font-medium text-gray-700">Tipo</span>
-                        <div class="mt-2 flex gap-4">
-                            <label><input type="radio" name="type" value="receita" ${(!transaction || transaction.type === 'receita') ? 'checked' : ''}> Receita</label>
-                            <label><input type="radio" name="type" value="despesa" ${(transaction?.type === 'despesa') ? 'checked' : ''}> Despesa</label>
-                        </div>
-                    </div>
-                    <div>
-                        <span class="block text-sm font-medium text-gray-700">Status</span>
-                        <div class="mt-2 flex gap-4">
-                            <label><input type="radio" name="status" value="a_pagar" ${(!transaction || transaction.status === 'a receber' || transaction.status === 'a pagar') ? 'checked' : ''}> Pendente</label>
-                            <label><input type="radio" name="status" value="pago" ${(transaction?.status === 'recebido' || transaction?.status === 'pago') ? 'checked' : ''}> Concluído</label>
-                        </div>
-                    </div>
-                    <div class="flex justify-end gap-4 pt-4">
-                        <button type="button" class="cancel-btn px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">Cancelar</button>
-                        <button type="submit" class="px-4 py-2 rounded-lg bg-blue-500 text-white hover:bg-blue-600">Salvar</button>
-                    </div>
-                </form>`;
-            openModal(html, () => {
-                document.querySelectorAll('.currency-input').forEach(input => {
-                    input.addEventListener('input', () => formatCurrencyInput(input));
-                });
-                document.getElementById('transaction-form').addEventListener('submit', handleSaveTransaction);
-                document.querySelector('.cancel-btn').addEventListener('click', closeModal);
-            });
-        };
-
-        const handleSaveTransaction = async (e) => {
-            e.preventDefault();
-            const form = e.target;
-            const formData = new FormData(form);
-            const id = formData.get('id');
-            const isEditing = !!id;
-            const type = formData.get('type');
-            let status = formData.get('status');
-            if (status === 'a_pagar') status = type === 'receita' ? 'a receber' : 'a pagar';
-            if (status === 'pago') status = type === 'receita' ? 'recebido' : 'pago';
-            
-            const txData = {
-                description: formData.get('description'),
-                value: parseCurrency(formData.get('value')),
-                date: new Date(formData.get('date') + 'T00:00:00'),
-                type: type,
-                status: status,
-                shortcutId: formData.get('shortcutId') || (isEditing ? AppState.transactions.find(t=>t.id === id).shortcutId : null),
-                isDeleted: false,
             };
-            
-            try {
-                if (isEditing) {
-                    await setDoc(doc(db, `users/${AppState.userId}/transactions`, id), txData);
-                } else {
-                    await addDoc(collection(db, `users/${AppState.userId}/transactions`), txData);
-                }
-                showToast(`Transação ${isEditing ? 'atualizada' : 'salva'} com sucesso!`);
-                closeModal();
-            } catch(error) {
-                console.error("Error saving transaction: ", error);
-                showToast('Erro ao salvar transação.', 'error');
-            }
+            App.init();
         };
-
-        const handleDeleteTransaction = (id) => {
-            const msg = "Tem certeza que deseja excluir esta transação? Esta ação é irreversível.";
-            openConfirmationModal(msg, async () => {
-                try {
-                    await deleteDoc(doc(db, `users/${AppState.userId}/transactions`, id));
-                    showToast('Transação excluída com sucesso!', 'success');
-                } catch (error) {
-                    console.error("Error deleting transaction: ", error);
-                    showToast('Erro ao excluir transação.', 'error');
-                }
-            });
-        };
-        
-        const handleToggleTransactionStatus = async (id) => {
-            const tx = AppState.transactions.find(t => t.id === id);
-            if (!tx) return;
-            let newStatus = tx.status;
-            if (tx.type === 'receita') {
-                newStatus = tx.status === 'recebido' ? 'a receber' : 'recebido';
-            } else {
-                newStatus = tx.status === 'pago' ? 'a pagar' : 'pago';
-            }
-            try {
-                await setDoc(doc(db, `users/${AppState.userId}/transactions`, id), { status: newStatus }, { merge: true });
-                showToast('Status da transação atualizado!', 'success');
-            } catch (error) {
-                 console.error("Error updating status: ", error);
-                 showToast('Erro ao atualizar status.', 'error');
-            }
-        };
-
-        // =================================================================================
-        // LÓGICA DE AUTENTICAÇÃO
-        // =================================================================================
-        
-        const handleAuth = async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const email = formData.get('email');
-            const password = formData.get('password');
-            const action = e.submitter.value;
-            const errorDiv = document.getElementById('auth-error');
-            const buttons = e.target.querySelectorAll('button');
-            
-            buttons.forEach(btn => btn.disabled = true);
-            errorDiv.textContent = '';
-            
-            try {
-                if (action === 'login') {
-                    await signInWithEmailAndPassword(auth, email, password);
-                } else {
-                    await createUserWithEmailAndPassword(auth, email, password);
-                }
-            } catch (error) {
-                console.error('Auth error:', error);
-                let message = 'Erro desconhecido';
-                switch (error.code) {
-                    case 'auth/user-not-found':
-                    case 'auth/wrong-password':
-                    case 'auth/invalid-credential':
-                        message = 'Email ou senha incorretos';
-                        break;
-                    case 'auth/email-already-in-use':
-                        message = 'Este email já está em uso';
-                        break;
-                    case 'auth/weak-password':
-                        message = 'A senha deve ter pelo menos 6 caracteres';
-                        break;
-                    case 'auth/invalid-email':
-                        message = 'Email inválido';
-                        break;
-                    default:
-                        message = error.message;
-                }
-                errorDiv.textContent = message;
-            } finally {
-                buttons.forEach(btn => btn.disabled = false);
-            }
-        };
-
-        const handleLogout = async () => {
-            try {
-                detachFirestoreListeners();
-                await signOut(auth);
-                AppState.userId = null;
-                AppState.transactions = [];
-                AppState.shortcuts = [];
-                document.getElementById('auth-container').classList.remove('hidden');
-                document.getElementById('app-container').classList.add('hidden');
-                showToast('Logout realizado com sucesso!', 'success');
-            } catch (error) {
-                console.error('Logout error:', error);
-                showToast('Erro ao fazer logout.', 'error');
-            }
-        };
-
-        // =================================================================================
-        // INICIALIZAÇÃO E EVENT LISTENERS
-        // =================================================================================
-
-        // Autenticação
-        onAuthStateChanged(auth, (user) => {
-            if (user) {
-                AppState.userId = user.uid;
-                document.getElementById('user-display').textContent = `Logado como: ${user.email}`;
-                document.getElementById('auth-container').classList.add('hidden');
-                document.getElementById('app-container').classList.remove('hidden');
-                initializePeriod();
-                setupFirestoreListeners(user.uid);
-                renderAll();
-            } else {
-                document.getElementById('auth-container').classList.remove('hidden');
-                document.getElementById('app-container').classList.add('hidden');
-            }
-        });
-
-        // Event Listeners
-        document.getElementById('login-form').addEventListener('submit', handleAuth);
-        document.getElementById('logout-btn').addEventListener('click', handleLogout);
-        document.getElementById('prev-period').addEventListener('click', () => changePeriod(-1));
-        document.getElementById('next-period').addEventListener('click', () => changePeriod(1));
-        document.getElementById('transaction-search').addEventListener('input', renderTransactionList);
-
-        // Tab navigation
-        document.querySelectorAll('.tab-item').forEach(tab => {
-            tab.addEventListener('click', () => {
-                AppState.currentTab = tab.dataset.tab;
-                renderAll();
-            });
-        });
-
-        // Event delegation for dynamic content
-        document.addEventListener('click', (e) => {
-            const target = e.target;
-            
-            // Shortcuts
-            if (target.closest('.new-shortcut-btn')) {
-                const type = target.closest('.new-shortcut-btn').dataset.type;
-                openShortcutModal(type);
-            }
-            if (target.closest('.shortcut-card') && !target.closest('.edit-shortcut-btn') && !target.closest('.delete-shortcut-btn')) {
-                const shortcutId = target.closest('.shortcut-card').dataset.id;
-                handleShortcutClick(shortcutId);
-            }
-            if (target.closest('.edit-shortcut-btn')) {
-                e.stopPropagation();
-                const shortcutId = target.closest('.shortcut-card').dataset.id;
-                const shortcut = AppState.shortcuts.find(s => s.id === shortcutId);
-                if (shortcut) openShortcutModal(shortcut.type, shortcutId);
-            }
-            if (target.closest('.delete-shortcut-btn')) {
-                e.stopPropagation();
-                const shortcutId = target.closest('.shortcut-card').dataset.id;
-                handleDeleteShortcut(shortcutId);
-            }
-            
-            // Transactions
-            if (target.closest('#add-generic-transaction-btn')) openTransactionModal();
-        });
     </script>
 </body>
 </html>
-
