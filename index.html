@@ -61,10 +61,36 @@
 </head>
 <body class="bg-gray-900 text-gray-200">
 
-    <div id="app" class="container mx-auto p-4 md:p-6 lg:p-8">
+    <!-- Login Container -->
+    <div id="login-container" class="container mx-auto p-4 md:p-6 lg:p-8 flex items-center justify-center min-h-screen">
+        <div class="bg-gray-800 p-8 rounded-lg shadow-xl w-full max-w-sm">
+            <h2 class="text-2xl font-bold text-center text-white mb-6">Acessar Painel</h2>
+            <form id="login-form">
+                <div class="mb-4">
+                    <label for="email" class="block mb-2 text-sm font-medium text-gray-300">Email</label>
+                    <input type="email" id="email" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div class="mb-6">
+                    <label for="password" class="block mb-2 text-sm font-medium text-gray-300">Senha</label>
+                    <input type="password" id="password" class="w-full bg-gray-700 border border-gray-600 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                </div>
+                <div id="error-message" class="text-red-500 text-center mb-4 min-h-[1.25rem]"></div>
+                <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors">Entrar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App Container (hidden by default) -->
+    <div id="app" class="container mx-auto p-4 md:p-6 lg:p-8 hidden">
         
         <!-- Header -->
         <header class="text-center mb-6">
+            <div class="flex justify-end mb-4">
+                 <button id="logout-btn" class="flex items-center space-x-2 text-red-400 hover:text-red-300 transition-colors">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                    <span>Sair</span>
+                </button>
+            </div>
             <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">Centro de Comando</h1>
             <div class="flex items-center justify-center space-x-4 mt-4">
                 <button id="prev-period-btn" class="p-2 rounded-md bg-gray-700 hover:bg-gray-600 transition-colors">
@@ -356,958 +382,1039 @@
 
     <!-- SCRIPT SECTION -->
     <script type="module">
-        // --- APP INITIALIZATION ---
-        window.onload = () => {
-            const App = {
-                // --- STATE MANAGEMENT ---
-                state: {
-                    currentView: 'dashboard', // 'dashboard', 'consultoria-list', 'consultoria-detail'
-                    currentClientId: null,
-                    currentDateForPeriod: new Date(),
-                    transactions: [],
-                    shortcuts: [],
-                    clients: [],
-                    slaughters: [],
-                    filterText: '',
-                },
+        // --- FIREBASE SETUP ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-app.js";
+        // Import Authentication functions
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.9.1/firebase-auth.js";
 
-                // --- DOM ELEMENTS ---
-                elements: {
-                    periodDisplay: document.getElementById('period-display'),
-                    prevPeriodBtn: document.getElementById('prev-period-btn'),
-                    nextPeriodBtn: document.getElementById('next-period-btn'),
-                    kpiDashboard: document.getElementById('kpi-dashboard'),
-                    revenueShortcuts: document.getElementById('revenue-shortcuts'),
-                    expenseShortcuts: document.getElementById('expense-shortcuts'),
-                    transactionsList: document.getElementById('transactions-list'),
-                    searchInput: document.getElementById('search-input'),
-                    
-                    // Views and Tabs
-                    viewDashboard: document.getElementById('view-dashboard'),
-                    viewConsultoria: document.getElementById('view-consultoria'),
-                    tabDashboard: document.getElementById('tab-dashboard'),
-                    tabConsultoria: document.getElementById('tab-consultoria'),
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBxAjPzd-OoQU_CPeMawa6QtSLcwbY3J4A",
+            authDomain: "financeiro-4fd9a.firebaseapp.com",
+            projectId: "financeiro-4fd9a",
+            storageBucket: "financeiro-4fd9a.firebasestorage.app",
+            messagingSenderId: "82912149153",
+            appId: "1:82912149153:web:293977f1d12145eebb3ae0",
+            measurementId: "G-GL40EGD9YM"
+        };
 
-                    // Consultoria Elements
-                    clientListView: document.getElementById('client-list-view'),
-                    slaughterDetailView: document.getElementById('slaughter-detail-view'),
-                    clientListContainer: document.getElementById('client-list-container'),
-                    slaughterClientName: document.getElementById('slaughter-client-name'),
-                    slaughterClientRate: document.getElementById('slaughter-client-rate'),
-                    slaughterListContainer: document.getElementById('slaughter-list-container'),
-                    
-                    // Modals & Forms
-                    transactionModal: document.getElementById('transaction-modal'),
-                    transactionForm: document.getElementById('transaction-form'),
-                    transactionModalTitle: document.getElementById('transaction-modal-title'),
-                    installmentsSection: document.getElementById('installments-section'),
-                    shortcutModal: document.getElementById('shortcut-modal'),
-                    shortcutForm: document.getElementById('shortcut-form'),
-                    shortcutModalTitle: document.getElementById('shortcut-modal-title'),
-                    iconSelection: document.getElementById('shortcut-icon-selection'),
-                    shortcutDueDaySection: document.getElementById('shortcut-due-day-section'),
-                    shortcutEffectiveDateSection: document.getElementById('shortcut-effective-date-section'),
-                    clientModal: document.getElementById('client-modal'),
-                    clientForm: document.getElementById('client-form'),
-                    clientModalTitle: document.getElementById('client-modal-title'),
-                    slaughterModal: document.getElementById('slaughter-modal'),
-                    slaughterForm: document.getElementById('slaughter-form'),
-                    slaughterModalTitle: document.getElementById('slaughter-modal-title'),
+        // Initialize Firebase
+        const firebaseApp = initializeApp(firebaseConfig);
+        const auth = getAuth(firebaseApp);
 
-                    // Generic Modal Elements
-                    confirmationModal: document.getElementById('confirmation-modal'),
-                    confirmationTitle: document.getElementById('confirmation-title'),
-                    confirmationMessage: document.getElementById('confirmation-message'),
-                    confirmationButtons: document.getElementById('confirmation-buttons'),
-                    confirmationIcon: document.getElementById('confirmation-icon'),
-                },
-                
-                // --- CONSTANTS ---
-                iconList: ['landmark', 'shopping-cart', 'utensils-crossed', 'home', 'car', 'heart-pulse', 'graduation-cap', 'plane', 'briefcase', 'gift', 'paw-print', 'receipt'],
+        // --- AUTHENTICATION LOGIC ---
+        const loginContainer = document.getElementById('login-container');
+        const appContainer = document.getElementById('app');
+        const loginForm = document.getElementById('login-form');
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const errorMessage = document.getElementById('error-message');
+        const logoutBtn = document.getElementById('logout-btn');
 
-                // --- INITIALIZATION ---
-                init() {
-                    this.loadData();
-                    this.setupEventListeners();
-                    this.switchView('dashboard');
-                },
+        // Handles login form submission
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const email = emailInput.value;
+            const password = passwordInput.value;
+            errorMessage.textContent = ''; // Clear previous errors
 
-                // --- DATA PERSISTENCE (localStorage) ---
-                loadData() {
-                    this.state.transactions = JSON.parse(localStorage.getItem('financeCenter_transactions')) || [];
-                    this.state.shortcuts = JSON.parse(localStorage.getItem('financeCenter_shortcuts')) || [];
-                    this.state.clients = JSON.parse(localStorage.getItem('financeCenter_clients')) || [];
-                    this.state.slaughters = JSON.parse(localStorage.getItem('financeCenter_slaughters')) || [];
-
-                    this.state.transactions.forEach(t => t.dueDate = new Date(t.dueDate));
-                    this.state.slaughters.forEach(s => s.date = new Date(s.date));
-                    this.state.shortcuts.forEach(s => { if (s.createdAt) s.createdAt = new Date(s.createdAt); });
-                },
-
-                saveData() {
-                    localStorage.setItem('financeCenter_transactions', JSON.stringify(this.state.transactions));
-                    localStorage.setItem('financeCenter_shortcuts', JSON.stringify(this.state.shortcuts));
-                    localStorage.setItem('financeCenter_clients', JSON.stringify(this.state.clients));
-                    localStorage.setItem('financeCenter_slaughters', JSON.stringify(this.state.slaughters));
-                },
-                
-                // --- UI & VIEW MANAGEMENT ---
-                updateUI() {
-                    this.generateBalanceTransferForCurrentPeriod();
-                    this.generateFixedTransactionsForCurrentPeriod();
-
-                    // Render based on the current active view
-                    switch (this.state.currentView) {
-                        case 'dashboard':
-                            this.renderPeriodDisplay();
-                            this.renderKPIs();
-                            this.renderShortcuts();
-                            this.renderTransactions();
+            signInWithEmailAndPassword(auth, email, password)
+                .catch((error) => {
+                    console.error('Login Error:', error.code, error.message);
+                    switch(error.code) {
+                        case 'auth/invalid-email':
+                            errorMessage.textContent = 'O formato do email é inválido.';
                             break;
-                        case 'consultoria-list':
-                            this.renderClientList();
+                        case 'auth/user-not-found':
+                        case 'auth/wrong-password':
+                        case 'auth/invalid-credential':
+                            errorMessage.textContent = 'Email ou senha incorretos.';
                             break;
-                        case 'consultoria-detail':
-                             this.renderPeriodDisplay();
-                            this.renderSlaughterDetail();
-                            break;
+                        default:
+                            errorMessage.textContent = 'Ocorreu um erro ao tentar fazer login.';
                     }
-                    lucide.createIcons();
-                },
+                });
+        });
+
+        // Handles logout button click
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth).catch(error => console.error('Logout Error:', error));
+        });
+
+        // Listens for authentication state changes
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                // User is signed in
+                loginContainer.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                lucide.createIcons(); // Re-render icons after showing app
+                App.init(); // Initialize the main application logic
+            } else {
+                // User is signed out
+                loginContainer.classList.remove('hidden');
+                appContainer.classList.add('hidden');
+            }
+        });
+
+        // --- MAIN APP OBJECT ---
+        const App = {
+            isInitialized: false,
+            // --- STATE MANAGEMENT ---
+            state: {
+                currentView: 'dashboard', // 'dashboard', 'consultoria-list', 'consultoria-detail'
+                currentClientId: null,
+                currentDateForPeriod: new Date(),
+                transactions: [],
+                shortcuts: [],
+                clients: [],
+                slaughters: [],
+                filterText: '',
+            },
+
+            // --- DOM ELEMENTS ---
+            elements: {
+                periodDisplay: document.getElementById('period-display'),
+                prevPeriodBtn: document.getElementById('prev-period-btn'),
+                nextPeriodBtn: document.getElementById('next-period-btn'),
+                kpiDashboard: document.getElementById('kpi-dashboard'),
+                revenueShortcuts: document.getElementById('revenue-shortcuts'),
+                expenseShortcuts: document.getElementById('expense-shortcuts'),
+                transactionsList: document.getElementById('transactions-list'),
+                searchInput: document.getElementById('search-input'),
                 
-                switchView(view, clientId = null) {
-                    this.state.currentView = view;
-                    this.state.currentClientId = clientId;
+                // Views and Tabs
+                viewDashboard: document.getElementById('view-dashboard'),
+                viewConsultoria: document.getElementById('view-consultoria'),
+                tabDashboard: document.getElementById('tab-dashboard'),
+                tabConsultoria: document.getElementById('tab-consultoria'),
 
-                    // Hide all main views
-                    this.elements.viewDashboard.classList.add('hidden');
-                    this.elements.viewConsultoria.classList.add('hidden');
-                    this.elements.clientListView.classList.add('hidden');
-                    this.elements.slaughterDetailView.classList.add('hidden');
-
-                    // Deactivate all tabs
-                    this.elements.tabDashboard.classList.remove('active');
-                    this.elements.tabConsultoria.classList.remove('active');
-
-                    switch (view) {
-                        case 'dashboard':
-                            this.elements.viewDashboard.classList.remove('hidden');
-                            this.elements.tabDashboard.classList.add('active');
-                            break;
-                        case 'consultoria-list':
-                            this.elements.viewConsultoria.classList.remove('hidden');
-                            this.elements.clientListView.classList.remove('hidden');
-                             this.elements.tabConsultoria.classList.add('active');
-                            break;
-                        case 'consultoria-detail':
-                             this.elements.viewConsultoria.classList.remove('hidden');
-                            this.elements.slaughterDetailView.classList.remove('hidden');
-                            this.elements.tabConsultoria.classList.add('active');
-                            break;
-                    }
-                    this.updateUI();
-                },
-
-                // --- PERIOD LOGIC ---
-                getPeriod(date) {
-                    const year = date.getFullYear();
-                    const month = date.getMonth();
-                    const start = new Date(year, month, 1, 0, 0, 0, 0);
-                    const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
-                    return { start, end };
-                },
+                // Consultoria Elements
+                clientListView: document.getElementById('client-list-view'),
+                slaughterDetailView: document.getElementById('slaughter-detail-view'),
+                clientListContainer: document.getElementById('client-list-container'),
+                slaughterClientName: document.getElementById('slaughter-client-name'),
+                slaughterClientRate: document.getElementById('slaughter-client-rate'),
+                slaughterListContainer: document.getElementById('slaughter-list-container'),
                 
-                changePeriod(months) {
-                    this.state.currentDateForPeriod.setMonth(this.state.currentDateForPeriod.getMonth() + months);
-                    this.updateUI();
-                },
+                // Modals & Forms
+                transactionModal: document.getElementById('transaction-modal'),
+                transactionForm: document.getElementById('transaction-form'),
+                transactionModalTitle: document.getElementById('transaction-modal-title'),
+                installmentsSection: document.getElementById('installments-section'),
+                shortcutModal: document.getElementById('shortcut-modal'),
+                shortcutForm: document.getElementById('shortcut-form'),
+                shortcutModalTitle: document.getElementById('shortcut-modal-title'),
+                iconSelection: document.getElementById('shortcut-icon-selection'),
+                shortcutDueDaySection: document.getElementById('shortcut-due-day-section'),
+                shortcutEffectiveDateSection: document.getElementById('shortcut-effective-date-section'),
+                clientModal: document.getElementById('client-modal'),
+                clientForm: document.getElementById('client-form'),
+                clientModalTitle: document.getElementById('client-modal-title'),
+                slaughterModal: document.getElementById('slaughter-modal'),
+                slaughterForm: document.getElementById('slaughter-form'),
+                slaughterModalTitle: document.getElementById('slaughter-modal-title'),
+
+                // Generic Modal Elements
+                confirmationModal: document.getElementById('confirmation-modal'),
+                confirmationTitle: document.getElementById('confirmation-title'),
+                confirmationMessage: document.getElementById('confirmation-message'),
+                confirmationButtons: document.getElementById('confirmation-buttons'),
+                confirmationIcon: document.getElementById('confirmation-icon'),
+            },
+            
+            // --- CONSTANTS ---
+            iconList: ['landmark', 'shopping-cart', 'utensils-crossed', 'home', 'car', 'heart-pulse', 'graduation-cap', 'plane', 'briefcase', 'gift', 'paw-print', 'receipt'],
+
+            // --- INITIALIZATION ---
+            init() {
+                // Prevent re-initialization
+                if (this.isInitialized) {
+                    this.updateUI(); // Just refresh the UI if already initialized
+                    return;
+                }
+                this.isInitialized = true;
                 
-                renderPeriodDisplay() {
-                    const period = this.getPeriod(this.state.currentDateForPeriod);
-                    this.elements.periodDisplay.textContent = `${period.start.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`;
-                },
+                this.loadData();
+                this.setupEventListeners();
+                this.switchView('dashboard');
+            },
 
-                // --- KPI RENDERING ---
-                renderKPIs() {
-                    const period = this.getPeriod(this.state.currentDateForPeriod);
-                    const transactionsInPeriod = this.state.transactions.filter(t => t.dueDate >= period.start && t.dueDate <= period.end);
+            // --- DATA PERSISTENCE (localStorage) ---
+            loadData() {
+                const userId = auth.currentUser.uid;
+                this.state.transactions = JSON.parse(localStorage.getItem(`financeCenter_transactions_${userId}`)) || [];
+                this.state.shortcuts = JSON.parse(localStorage.getItem(`financeCenter_shortcuts_${userId}`)) || [];
+                this.state.clients = JSON.parse(localStorage.getItem(`financeCenter_clients_${userId}`)) || [];
+                this.state.slaughters = JSON.parse(localStorage.getItem(`financeCenter_slaughters_${userId}`)) || [];
 
-                    const received = transactionsInPeriod.filter(t => t.type === 'revenue' && t.status === 'paid').reduce((sum, t) => sum + t.amount, 0);
-                    const paid = transactionsInPeriod.filter(t => t.type === 'expense' && t.status === 'paid').reduce((sum, t) => sum + t.amount, 0);
-                    const toReceive = transactionsInPeriod.filter(t => t.type === 'revenue' && t.status === 'pending').reduce((sum, t) => sum + t.amount, 0);
-                    const toPay = transactionsInPeriod.filter(t => t.type === 'expense' && t.status === 'pending').reduce((sum, t) => sum + t.amount, 0);
-                    
-                    const currentBalance = received - paid;
-                    const projectedBalance = currentBalance + toReceive - toPay;
+                this.state.transactions.forEach(t => t.dueDate = new Date(t.dueDate));
+                this.state.slaughters.forEach(s => s.date = new Date(s.date));
+                this.state.shortcuts.forEach(s => { if (s.createdAt) s.createdAt = new Date(s.createdAt); });
+            },
 
-                    const kpis = [
-                        { label: 'Recebido', value: received, color: 'green', icon: 'arrow-down-circle' },
-                        { label: 'Pago', value: paid, color: 'red', icon: 'arrow-up-circle' },
-                        { label: 'Saldo Atual', value: currentBalance, color: 'blue', icon: 'scale' },
-                        { label: 'A Receber', value: toReceive, color: 'green', icon: 'calendar-plus' },
-                        { label: 'A Pagar', value: toPay, color: 'red', icon: 'calendar-minus' },
-                        { label: 'Saldo Previsto', value: projectedBalance, color: 'blue', icon: 'bar-chart-2' },
-                    ];
+            saveData() {
+                const userId = auth.currentUser.uid;
+                localStorage.setItem(`financeCenter_transactions_${userId}`, JSON.stringify(this.state.transactions));
+                localStorage.setItem(`financeCenter_shortcuts_${userId}`, JSON.stringify(this.state.shortcuts));
+                localStorage.setItem(`financeCenter_clients_${userId}`, JSON.stringify(this.state.clients));
+                localStorage.setItem(`financeCenter_slaughters_${userId}`, JSON.stringify(this.state.slaughters));
+            },
+            
+            // --- UI & VIEW MANAGEMENT ---
+            updateUI() {
+                this.generateBalanceTransferForCurrentPeriod();
+                this.generateFixedTransactionsForCurrentPeriod();
 
-                    this.elements.kpiDashboard.innerHTML = kpis.map(kpi => `
-                        <div class="bg-gray-800 p-4 rounded-lg shadow-lg flex items-center space-x-4 transition-transform transform hover:scale-105" id="kpi-${kpi.label.replace(' ', '-')}">
-                            <div class="p-3 rounded-full bg-${kpi.color}-500 bg-opacity-20 text-${kpi.color}-400">
-                                <i data-lucide="${kpi.icon}" class="w-7 h-7"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm text-gray-400">${kpi.label}</p>
-                                <p class="text-2xl font-bold text-white">${this.formatCurrency(kpi.value)}</p>
-                            </div>
+                // Render based on the current active view
+                switch (this.state.currentView) {
+                    case 'dashboard':
+                        this.renderPeriodDisplay();
+                        this.renderKPIs();
+                        this.renderShortcuts();
+                        this.renderTransactions();
+                        break;
+                    case 'consultoria-list':
+                        this.renderClientList();
+                        break;
+                    case 'consultoria-detail':
+                         this.renderPeriodDisplay();
+                        this.renderSlaughterDetail();
+                        break;
+                }
+                lucide.createIcons();
+            },
+            
+            switchView(view, clientId = null) {
+                this.state.currentView = view;
+                this.state.currentClientId = clientId;
+
+                // Hide all main views
+                this.elements.viewDashboard.classList.add('hidden');
+                this.elements.viewConsultoria.classList.add('hidden');
+                this.elements.clientListView.classList.add('hidden');
+                this.elements.slaughterDetailView.classList.add('hidden');
+
+                // Deactivate all tabs
+                this.elements.tabDashboard.classList.remove('active');
+                this.elements.tabConsultoria.classList.remove('active');
+
+                switch (view) {
+                    case 'dashboard':
+                        this.elements.viewDashboard.classList.remove('hidden');
+                        this.elements.tabDashboard.classList.add('active');
+                        break;
+                    case 'consultoria-list':
+                        this.elements.viewConsultoria.classList.remove('hidden');
+                        this.elements.clientListView.classList.remove('hidden');
+                         this.elements.tabConsultoria.classList.add('active');
+                        break;
+                    case 'consultoria-detail':
+                         this.elements.viewConsultoria.classList.remove('hidden');
+                        this.elements.slaughterDetailView.classList.remove('hidden');
+                        this.elements.tabConsultoria.classList.add('active');
+                        break;
+                }
+                this.updateUI();
+            },
+
+            // --- PERIOD LOGIC ---
+            getPeriod(date) {
+                const year = date.getFullYear();
+                const month = date.getMonth();
+                const start = new Date(year, month, 1, 0, 0, 0, 0);
+                const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
+                return { start, end };
+            },
+            
+            changePeriod(months) {
+                this.state.currentDateForPeriod.setMonth(this.state.currentDateForPeriod.getMonth() + months);
+                this.updateUI();
+            },
+            
+            renderPeriodDisplay() {
+                const period = this.getPeriod(this.state.currentDateForPeriod);
+                this.elements.periodDisplay.textContent = `${period.start.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}`;
+            },
+
+            // --- KPI RENDERING ---
+            renderKPIs() {
+                const period = this.getPeriod(this.state.currentDateForPeriod);
+                const transactionsInPeriod = this.state.transactions.filter(t => t.dueDate >= period.start && t.dueDate <= period.end);
+
+                const received = transactionsInPeriod.filter(t => t.type === 'revenue' && t.status === 'paid').reduce((sum, t) => sum + t.amount, 0);
+                const paid = transactionsInPeriod.filter(t => t.type === 'expense' && t.status === 'paid').reduce((sum, t) => sum + t.amount, 0);
+                const toReceive = transactionsInPeriod.filter(t => t.type === 'revenue' && t.status === 'pending').reduce((sum, t) => sum + t.amount, 0);
+                const toPay = transactionsInPeriod.filter(t => t.type === 'expense' && t.status === 'pending').reduce((sum, t) => sum + t.amount, 0);
+                
+                const currentBalance = received - paid;
+                const projectedBalance = currentBalance + toReceive - toPay;
+
+                const kpis = [
+                    { label: 'Recebido', value: received, color: 'green', icon: 'arrow-down-circle' },
+                    { label: 'Pago', value: paid, color: 'red', icon: 'arrow-up-circle' },
+                    { label: 'Saldo Atual', value: currentBalance, color: 'blue', icon: 'scale' },
+                    { label: 'A Receber', value: toReceive, color: 'green', icon: 'calendar-plus' },
+                    { label: 'A Pagar', value: toPay, color: 'red', icon: 'calendar-minus' },
+                    { label: 'Saldo Previsto', value: projectedBalance, color: 'blue', icon: 'bar-chart-2' },
+                ];
+
+                this.elements.kpiDashboard.innerHTML = kpis.map(kpi => `
+                    <div class="bg-gray-800 p-4 rounded-lg shadow-lg flex items-center space-x-4 transition-transform transform hover:scale-105" id="kpi-${kpi.label.replace(' ', '-')}">
+                        <div class="p-3 rounded-full bg-${kpi.color}-500 bg-opacity-20 text-${kpi.color}-400">
+                            <i data-lucide="${kpi.icon}" class="w-7 h-7"></i>
                         </div>
-                    `).join('');
-                },
+                        <div>
+                            <p class="text-sm text-gray-400">${kpi.label}</p>
+                            <p class="text-2xl font-bold text-white">${this.formatCurrency(kpi.value)}</p>
+                        </div>
+                    </div>
+                `).join('');
+            },
 
-                // --- SHORTCUTS & TRANSACTIONS RENDERING ---
-                renderShortcuts() {
-                    this.elements.revenueShortcuts.innerHTML = '';
-                    this.elements.expenseShortcuts.innerHTML = '';
-                    const period = this.getPeriod(this.state.currentDateForPeriod);
-                    this.state.shortcuts.forEach(shortcut => {
-                        let displayValue = this.formatCurrency(shortcut.defaultValue);
-                        if (shortcut.frequency === 'variable') {
-                            const accumulated = this.state.transactions
-                                .filter(t => t.shortcutId === shortcut.id && t.dueDate >= period.start && t.dueDate <= period.end)
-                                .reduce((sum, t) => sum + t.amount, 0);
-                            displayValue = this.formatCurrency(accumulated);
-                        }
-                        const shortcutCard = `
-                            <div data-shortcut-id="${shortcut.id}" class="shortcut-card bg-gray-700 p-3 rounded-lg flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-600 transition-colors relative group">
-                                <div class="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button class="edit-shortcut-btn p-1 rounded-full bg-gray-800 hover:bg-blue-600" data-id="${shortcut.id}"><i data-lucide="edit-2" class="w-3 h-3 pointer-events-none"></i></button>
-                                    <button class="delete-shortcut-btn p-1 rounded-full bg-gray-800 hover:bg-red-600" data-id="${shortcut.id}"><i data-lucide="trash-2" class="w-3 h-3 pointer-events-none"></i></button>
-                                </div>
-                                <i data-lucide="${shortcut.icon}" class="w-8 h-8 mb-2 ${shortcut.type === 'revenue' ? 'text-green-400' : 'text-red-400'}"></i>
-                                <p class="text-sm font-medium truncate w-full" title="${shortcut.name}">${shortcut.name}</p>
-                                <p class="text-xs text-gray-400">${displayValue}</p>
-                            </div>`;
-                        if (shortcut.type === 'revenue') {
-                            this.elements.revenueShortcuts.innerHTML += shortcutCard;
-                        } else {
-                            this.elements.expenseShortcuts.innerHTML += shortcutCard;
-                        }
-                    });
-                },
-
-                renderTransactions() {
-                    const period = this.getPeriod(this.state.currentDateForPeriod);
-                    let transactionsToRender = this.state.transactions
-                        .filter(t => t.dueDate >= period.start && t.dueDate <= period.end)
-                        .filter(t => t.description.toLowerCase().includes(this.state.filterText.toLowerCase()));
-                    transactionsToRender.sort((a, b) => {
-                        if (a.isBalanceTransfer) return -1; // Keep balance transfer at the top
-                        if (b.isBalanceTransfer) return 1;
-                        return b.dueDate - a.dueDate;
-                    });
-
-
-                    if (transactionsToRender.length === 0) {
-                        this.elements.transactionsList.innerHTML = `<div class="text-center py-8 text-gray-500"><i data-lucide="inbox" class="w-12 h-12 mx-auto mb-2"></i><p>Nenhuma transação neste período.</p></div>`;
-                    } else {
-                        this.elements.transactionsList.innerHTML = `
-                            <div class="hidden md:grid grid-cols-12 gap-4 font-bold p-2 text-gray-400 text-sm">
-                                <div class="col-span-1"></div><div class="col-span-4">Descrição</div><div class="col-span-2 text-right">Valor</div><div class="col-span-2 text-center">Vencimento</div><div class="col-span-1 text-center">Tipo</div><div class="col-span-2 text-right">Ações</div>
-                            </div>
-                            ${transactionsToRender.map(t => this.createTransactionRow(t)).join('')}`;
+            // --- SHORTCUTS & TRANSACTIONS RENDERING ---
+            renderShortcuts() {
+                this.elements.revenueShortcuts.innerHTML = '';
+                this.elements.expenseShortcuts.innerHTML = '';
+                const period = this.getPeriod(this.state.currentDateForPeriod);
+                this.state.shortcuts.forEach(shortcut => {
+                    let displayValue = this.formatCurrency(shortcut.defaultValue);
+                    if (shortcut.frequency === 'variable') {
+                        const accumulated = this.state.transactions
+                            .filter(t => t.shortcutId === shortcut.id && t.dueDate >= period.start && t.dueDate <= period.end)
+                            .reduce((sum, t) => sum + t.amount, 0);
+                        displayValue = this.formatCurrency(accumulated);
                     }
-                    lucide.createIcons();
-                },
-                
-                createTransactionRow(t) {
-                    const isPaid = t.status === 'paid';
-                    const typeColor = t.type === 'revenue' ? 'text-green-400' : 'text-red-400';
-                    const descriptionClass = isPaid ? 'line-through text-gray-500' : 'text-gray-200';
-                    const valueClass = isPaid ? 'line-through text-gray-500' : typeColor;
-                    
-                    const isAutoTransfer = t.isBalanceTransfer === true;
-
-                    const actionButtonsHTML = isAutoTransfer
-                        ? `<div class="flex items-center justify-end pr-2" title="Transação automática de saldo"><i data-lucide="lock" class="w-5 h-5 text-gray-500"></i></div>`
-                        : `<button class="edit-transaction-btn p-2 text-gray-400 hover:text-blue-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${t.id}"><i data-lucide="edit-2" class="w-4 h-4 pointer-events-none"></i></button>
-                           <button class="delete-transaction-btn p-2 text-gray-400 hover:text-red-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${t.id}"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>`;
-
-                    return `
-                        <div class="grid grid-cols-2 md:grid-cols-12 gap-4 items-center p-3 rounded-lg ${isAutoTransfer ? 'bg-gray-800/50' : 'hover:bg-gray-700/50'} border-b border-gray-700 last:border-b-0">
-                            <div class="md:col-span-1 flex items-center justify-start">
-                                <input type="checkbox" data-id="${t.id}" class="transaction-status-check h-5 w-5 rounded bg-gray-600 border-gray-500 text-blue-500 focus:ring-blue-600 cursor-pointer" 
-                                ${isPaid ? 'checked' : ''} 
-                                ${isAutoTransfer ? 'disabled' : ''}>
+                    const shortcutCard = `
+                        <div data-shortcut-id="${shortcut.id}" class="shortcut-card bg-gray-700 p-3 rounded-lg flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-600 transition-colors relative group">
+                            <div class="absolute top-1 right-1 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button class="edit-shortcut-btn p-1 rounded-full bg-gray-800 hover:bg-blue-600" data-id="${shortcut.id}"><i data-lucide="edit-2" class="w-3 h-3 pointer-events-none"></i></button>
+                                <button class="delete-shortcut-btn p-1 rounded-full bg-gray-800 hover:bg-red-600" data-id="${shortcut.id}"><i data-lucide="trash-2" class="w-3 h-3 pointer-events-none"></i></button>
                             </div>
-                            <div class="md:col-span-4 flex items-center space-x-2"><span class="md:hidden font-bold text-gray-400">Desc:</span><p class="${descriptionClass} font-medium">${t.description}</p></div>
-                            <div class="md:col-span-2 flex justify-between md:justify-end items-center"><span class="md:hidden font-bold text-gray-400">Valor:</span><p class="${valueClass} font-bold text-right">${this.formatCurrency(t.amount)}</p></div>
-                            <div class="md:col-span-2 flex justify-between md:justify-center items-center"><span class="md:hidden font-bold text-gray-400">Venc:</span><p class="text-gray-400 text-sm text-center">${t.dueDate.toLocaleDateString('pt-BR')}</p></div>
-                            <div class="md:col-span-1 flex justify-between md:justify-center items-center"><span class="md:hidden font-bold text-gray-400">Tipo:</span><i data-lucide="${t.type === 'revenue' ? 'arrow-down' : 'arrow-up'}" class="${typeColor} w-5 h-5"></i></div>
-                            <div class="col-span-2 md:col-span-2 flex justify-end items-center space-x-2">
-                                ${actionButtonsHTML}
-                            </div>
+                            <i data-lucide="${shortcut.icon}" class="w-8 h-8 mb-2 ${shortcut.type === 'revenue' ? 'text-green-400' : 'text-red-400'}"></i>
+                            <p class="text-sm font-medium truncate w-full" title="${shortcut.name}">${shortcut.name}</p>
+                            <p class="text-xs text-gray-400">${displayValue}</p>
                         </div>`;
-                },
+                    if (shortcut.type === 'revenue') {
+                        this.elements.revenueShortcuts.innerHTML += shortcutCard;
+                    } else {
+                        this.elements.expenseShortcuts.innerHTML += shortcutCard;
+                    }
+                });
+            },
+
+            renderTransactions() {
+                const period = this.getPeriod(this.state.currentDateForPeriod);
+                let transactionsToRender = this.state.transactions
+                    .filter(t => t.dueDate >= period.start && t.dueDate <= period.end)
+                    .filter(t => t.description.toLowerCase().includes(this.state.filterText.toLowerCase()));
+                transactionsToRender.sort((a, b) => {
+                    if (a.isBalanceTransfer) return -1; // Keep balance transfer at the top
+                    if (b.isBalanceTransfer) return 1;
+                    return b.dueDate - a.dueDate;
+                });
+
+
+                if (transactionsToRender.length === 0) {
+                    this.elements.transactionsList.innerHTML = `<div class="text-center py-8 text-gray-500"><i data-lucide="inbox" class="w-12 h-12 mx-auto mb-2"></i><p>Nenhuma transação neste período.</p></div>`;
+                } else {
+                    this.elements.transactionsList.innerHTML = `
+                        <div class="hidden md:grid grid-cols-12 gap-4 font-bold p-2 text-gray-400 text-sm">
+                            <div class="col-span-1"></div><div class="col-span-4">Descrição</div><div class="col-span-2 text-right">Valor</div><div class="col-span-2 text-center">Vencimento</div><div class="col-span-1 text-center">Tipo</div><div class="col-span-2 text-right">Ações</div>
+                        </div>
+                        ${transactionsToRender.map(t => this.createTransactionRow(t)).join('')}`;
+                }
+                lucide.createIcons();
+            },
+            
+            createTransactionRow(t) {
+                const isPaid = t.status === 'paid';
+                const typeColor = t.type === 'revenue' ? 'text-green-400' : 'text-red-400';
+                const descriptionClass = isPaid ? 'line-through text-gray-500' : 'text-gray-200';
+                const valueClass = isPaid ? 'line-through text-gray-500' : typeColor;
                 
-                // --- EVENT LISTENERS ---
-                setupEventListeners() {
-                    // Main navigation
-                    this.elements.prevPeriodBtn.addEventListener('click', () => this.changePeriod(-1));
-                    this.elements.nextPeriodBtn.addEventListener('click', () => this.changePeriod(1));
-                    this.elements.searchInput.addEventListener('input', e => { this.state.filterText = e.target.value; this.renderTransactions(); });
-                    
-                    // Tab navigation
-                    this.elements.tabDashboard.addEventListener('click', () => this.switchView('dashboard'));
-                    this.elements.tabConsultoria.addEventListener('click', () => this.switchView('consultoria-list'));
+                const isAutoTransfer = t.isBalanceTransfer === true;
 
-                    // Modal Buttons
-                    document.getElementById('add-transaction-btn').addEventListener('click', () => this.openTransactionModal());
-                    document.getElementById('add-shortcut-btn').addEventListener('click', () => this.openShortcutModal());
-                    document.getElementById('add-client-btn').addEventListener('click', () => this.openClientModal());
-                    document.getElementById('add-slaughter-btn').addEventListener('click', () => this.openSlaughterModal());
-                    document.getElementById('back-to-clients-btn').addEventListener('click', () => this.switchView('consultoria-list'));
-                    
-                    document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => this.closeAllModals()));
-                    
-                    // Form Submissions
-                    this.elements.transactionForm.addEventListener('submit', e => this.handleTransactionFormSubmit(e));
-                    this.elements.shortcutForm.addEventListener('submit', e => this.handleShortcutFormSubmit(e));
-                    this.elements.clientForm.addEventListener('submit', e => this.handleClientFormSubmit(e));
-                    this.elements.slaughterForm.addEventListener('submit', e => this.handleSlaughterFormSubmit(e));
+                const actionButtonsHTML = isAutoTransfer
+                    ? `<div class="flex items-center justify-end pr-2" title="Transação automática de saldo"><i data-lucide="lock" class="w-5 h-5 text-gray-500"></i></div>`
+                    : `<button class="edit-transaction-btn p-2 text-gray-400 hover:text-blue-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${t.id}"><i data-lucide="edit-2" class="w-4 h-4 pointer-events-none"></i></button>
+                       <button class="delete-transaction-btn p-2 text-gray-400 hover:text-red-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${t.id}"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>`;
 
-                    this.elements.shortcutForm.elements['shortcut-frequency'].addEventListener('change', e => {
-                        if (e.target.value === 'fixed') {
-                            this.elements.shortcutDueDaySection.classList.remove('hidden');
-                        } else {
-                            this.elements.shortcutDueDaySection.classList.add('hidden');
-                        }
-                    });
+                return `
+                    <div class="grid grid-cols-2 md:grid-cols-12 gap-4 items-center p-3 rounded-lg ${isAutoTransfer ? 'bg-gray-800/50' : 'hover:bg-gray-700/50'} border-b border-gray-700 last:border-b-0">
+                        <div class="md:col-span-1 flex items-center justify-start">
+                            <input type="checkbox" data-id="${t.id}" class="transaction-status-check h-5 w-5 rounded bg-gray-600 border-gray-500 text-blue-500 focus:ring-blue-600 cursor-pointer" 
+                            ${isPaid ? 'checked' : ''} 
+                            ${isAutoTransfer ? 'disabled' : ''}>
+                        </div>
+                        <div class="md:col-span-4 flex items-center space-x-2"><span class="md:hidden font-bold text-gray-400">Desc:</span><p class="${descriptionClass} font-medium">${t.description}</p></div>
+                        <div class="md:col-span-2 flex justify-between md:justify-end items-center"><span class="md:hidden font-bold text-gray-400">Valor:</span><p class="${valueClass} font-bold text-right">${this.formatCurrency(t.amount)}</p></div>
+                        <div class="md:col-span-2 flex justify-between md:justify-center items-center"><span class="md:hidden font-bold text-gray-400">Venc:</span><p class="text-gray-400 text-sm text-center">${t.dueDate.toLocaleDateString('pt-BR')}</p></div>
+                        <div class="md:col-span-1 flex justify-between md:justify-center items-center"><span class="md:hidden font-bold text-gray-400">Tipo:</span><i data-lucide="${t.type === 'revenue' ? 'arrow-down' : 'arrow-up'}" class="${typeColor} w-5 h-5"></i></div>
+                        <div class="col-span-2 md:col-span-2 flex justify-end items-center space-x-2">
+                            ${actionButtonsHTML}
+                        </div>
+                    </div>`;
+            },
+            
+            // --- EVENT LISTENERS ---
+            setupEventListeners() {
+                // Main navigation
+                this.elements.prevPeriodBtn.addEventListener('click', () => this.changePeriod(-1));
+                this.elements.nextPeriodBtn.addEventListener('click', () => this.changePeriod(1));
+                this.elements.searchInput.addEventListener('input', e => { this.state.filterText = e.target.value; this.renderTransactions(); });
+                
+                // Tab navigation
+                this.elements.tabDashboard.addEventListener('click', () => this.switchView('dashboard'));
+                this.elements.tabConsultoria.addEventListener('click', () => this.switchView('consultoria-list'));
 
-                    // Event delegation for dynamic elements
-                    document.body.addEventListener('click', e => {
-                        const button = e.target.closest('button, .shortcut-card');
-                        if (!button) return;
-                        const id = button.dataset.id;
-                        
-                        // Shortcut actions
-                        if (button.matches('.edit-shortcut-btn')) this.openShortcutModal(id);
-                        if (button.matches('.delete-shortcut-btn')) this.confirmDeleteShortcut(id);
-                        if (button.matches('.shortcut-card')) this.openTransactionModal(null, button.dataset.shortcutId);
+                // Modal Buttons
+                document.getElementById('add-transaction-btn').addEventListener('click', () => this.openTransactionModal());
+                document.getElementById('add-shortcut-btn').addEventListener('click', () => this.openShortcutModal());
+                document.getElementById('add-client-btn').addEventListener('click', () => this.openClientModal());
+                document.getElementById('add-slaughter-btn').addEventListener('click', () => this.openSlaughterModal());
+                document.getElementById('back-to-clients-btn').addEventListener('click', () => this.switchView('consultoria-list'));
+                
+                document.querySelectorAll('.close-modal-btn').forEach(btn => btn.addEventListener('click', () => this.closeAllModals()));
+                
+                // Form Submissions
+                this.elements.transactionForm.addEventListener('submit', e => this.handleTransactionFormSubmit(e));
+                this.elements.shortcutForm.addEventListener('submit', e => this.handleShortcutFormSubmit(e));
+                this.elements.clientForm.addEventListener('submit', e => this.handleClientFormSubmit(e));
+                this.elements.slaughterForm.addEventListener('submit', e => this.handleSlaughterFormSubmit(e));
 
-                        // Transaction actions
-                        if (button.matches('.edit-transaction-btn')) this.openTransactionModal(id);
-                        if (button.matches('.delete-transaction-btn')) this.confirmDeleteTransaction(id);
-
-                         // Client actions
-                        if (button.matches('.edit-client-btn')) this.openClientModal(id);
-                        if (button.matches('.view-slaughters-btn')) this.switchView('consultoria-detail', id);
-                        
-                        // Slaughter actions
-                        if (button.matches('.edit-slaughter-btn')) this.openSlaughterModal(id);
-                        if (button.matches('.delete-slaughter-btn')) this.confirmDeleteSlaughter(id);
-                    });
-                    
-                    document.body.addEventListener('change', e => { if (e.target.matches('.transaction-status-check')) this.toggleTransactionStatus(e.target.dataset.id, e.target.checked); });
-                    
-                    this.elements.iconSelection.addEventListener('click', e => {
-                        const iconButton = e.target.closest('.icon-btn');
-                        if (iconButton) {
-                            document.querySelectorAll('.icon-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-blue-500'));
-                            iconButton.classList.add('ring-2', 'ring-blue-500');
-                            document.getElementById('shortcut-icon').value = iconButton.dataset.icon;
-                        }
-                    });
-                },
-
-                // --- MODAL & FORM LOGIC ---
-                openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); },
-                closeAllModals() { document.querySelectorAll('.modal').forEach(modal => modal.classList.add('hidden')); },
-
-                // Transaction Modal Logic (existing)
-                openTransactionModal(id = null, shortcutId = null) {
-                    const form = this.elements.transactionForm;
-                    form.reset();
-                    form.elements['transaction-id'].value = '';
-                    this.elements.installmentsSection.style.display = 'block';
-
-                    if (id) {
-                        const transaction = this.state.transactions.find(t => t.id === id); if (!transaction) return;
-                        this.elements.transactionModalTitle.textContent = 'Editar Transação';
-                        form.elements['transaction-id'].value = transaction.id;
-                        form.elements['transaction-description'].value = transaction.description;
-                        form.elements['transaction-amount'].value = transaction.amount;
-                        form.elements['transaction-due-date'].value = this.formatDateForInput(transaction.dueDate);
-                        form.elements['transaction-type'].value = transaction.type;
-                        form.elements['transaction-status'].value = transaction.status;
-                        form.elements['transaction-shortcut-id'].value = transaction.shortcutId || '';
-                        this.elements.installmentsSection.style.display = 'none';
-                    } else if (shortcutId) {
-                        const shortcut = this.state.shortcuts.find(s => s.id === shortcutId); if (!shortcut) return;
-                        this.elements.transactionModalTitle.textContent = `Lançar: ${shortcut.name}`;
-                        form.elements['transaction-description'].value = shortcut.name;
-                        form.elements['transaction-amount'].value = shortcut.defaultValue;
-                        form.elements['transaction-type'].value = shortcut.type;
-                        form.elements['transaction-due-date'].value = this.formatDateForInput(new Date());
-                        form.elements['transaction-shortcut-id'].value = shortcut.id;
+                this.elements.shortcutForm.elements['shortcut-frequency'].addEventListener('change', e => {
+                    if (e.target.value === 'fixed') {
+                        this.elements.shortcutDueDaySection.classList.remove('hidden');
                     } else {
-                        this.elements.transactionModalTitle.textContent = 'Nova Transação';
-                        form.elements['transaction-due-date'].value = this.formatDateForInput(new Date());
+                        this.elements.shortcutDueDaySection.classList.add('hidden');
                     }
-                    this.openModal('transaction-modal');
-                },
+                });
 
-                handleTransactionFormSubmit(e) {
-                    e.preventDefault();
-                    const form = e.target.elements;
-                    const dueDateValue = form['transaction-due-date'].value;
-                    if (!dueDateValue) {
-                        this.showMessage('Erro de Validação', 'O campo de data (Vencimento/Recebimento) é obrigatório.', 'error', [{ text: 'OK', class: 'bg-blue-600 hover:bg-blue-700', action: () => this.closeAllModals() }]);
-                        return;
+                // Event delegation for dynamic elements
+                document.body.addEventListener('click', e => {
+                    const button = e.target.closest('button, .shortcut-card');
+                    if (!button) return;
+                    const id = button.dataset.id;
+                    
+                    // Shortcut actions
+                    if (button.matches('.edit-shortcut-btn')) this.openShortcutModal(id);
+                    if (button.matches('.delete-shortcut-btn')) this.confirmDeleteShortcut(id);
+                    if (button.matches('.shortcut-card')) this.openTransactionModal(null, button.dataset.shortcutId);
+
+                    // Transaction actions
+                    if (button.matches('.edit-transaction-btn')) this.openTransactionModal(id);
+                    if (button.matches('.delete-transaction-btn')) this.confirmDeleteTransaction(id);
+
+                     // Client actions
+                    if (button.matches('.edit-client-btn')) this.openClientModal(id);
+                    if (button.matches('.view-slaughters-btn')) this.switchView('consultoria-detail', id);
+                    
+                    // Slaughter actions
+                    if (button.matches('.edit-slaughter-btn')) this.openSlaughterModal(id);
+                    if (button.matches('.delete-slaughter-btn')) this.confirmDeleteSlaughter(id);
+                });
+                
+                document.body.addEventListener('change', e => { if (e.target.matches('.transaction-status-check')) this.toggleTransactionStatus(e.target.dataset.id, e.target.checked); });
+                
+                this.elements.iconSelection.addEventListener('click', e => {
+                    const iconButton = e.target.closest('.icon-btn');
+                    if (iconButton) {
+                        document.querySelectorAll('.icon-btn').forEach(btn => btn.classList.remove('ring-2', 'ring-blue-500'));
+                        iconButton.classList.add('ring-2', 'ring-blue-500');
+                        document.getElementById('shortcut-icon').value = iconButton.dataset.icon;
                     }
+                });
+            },
 
-                    const id = form['transaction-id'].value;
-                    const amount = parseFloat(form['transaction-amount'].value);
-                    const installments = parseInt(form['transaction-installments'].value) || 1;
-                    const baseDueDate = new Date(dueDateValue + 'T12:00:00');
+            // --- MODAL & FORM LOGIC ---
+            openModal(modalId) { document.getElementById(modalId).classList.remove('hidden'); },
+            closeAllModals() { document.querySelectorAll('.modal').forEach(modal => modal.classList.add('hidden')); },
 
-                    if (id) {
-                        const index = this.state.transactions.findIndex(t => t.id === id);
-                        if (index !== -1) { Object.assign(this.state.transactions[index], { description: form['transaction-description'].value, amount, dueDate: baseDueDate, type: form['transaction-type'].value, status: form['transaction-status'].value }); }
-                    } else {
-                        const totalAmount = amount, installmentAmount = parseFloat((totalAmount / installments).toFixed(2)), firstInstallmentAmount = totalAmount - (installmentAmount * (installments - 1));
-                        const baseTransaction = { description: form['transaction-description'].value, type: form['transaction-type'].value, status: form['transaction-status'].value, shortcutId: form['transaction-shortcut-id'].value || null };
-                        const installmentGroupId = crypto.randomUUID();
-                        for (let i = 0; i < installments; i++) {
-                            const newDate = new Date(baseDueDate); newDate.setMonth(baseDueDate.getMonth() + i);
-                            this.state.transactions.push({ ...baseTransaction, id: crypto.randomUUID(), amount: i === 0 ? firstInstallmentAmount : installmentAmount, dueDate: newDate, description: installments > 1 ? `${baseTransaction.description} (${i+1}/${installments})` : baseTransaction.description, installmentGroupId: installments > 1 ? installmentGroupId : null });
-                        }
-                    }
-                    this.saveData(); this.updateUI(); this.closeAllModals();
-                },
-                toggleTransactionStatus(id, isPaid) {
-                    const transaction = this.state.transactions.find(t => t.id === id);
-                    if (transaction) { transaction.status = isPaid ? 'paid' : 'pending'; this.saveData(); this.updateUI(); }
-                },
+            // Transaction Modal Logic (existing)
+            openTransactionModal(id = null, shortcutId = null) {
+                const form = this.elements.transactionForm;
+                form.reset();
+                form.elements['transaction-id'].value = '';
+                this.elements.installmentsSection.style.display = 'block';
 
-                confirmDeleteTransaction(id) {
+                if (id) {
                     const transaction = this.state.transactions.find(t => t.id === id); if (!transaction) return;
-                    
-                    if (transaction.installmentGroupId) {
-                        this.showMessage(
-                            'Excluir Parcela',
-                            'Esta transação faz parte de um parcelamento. Como deseja prosseguir?',
-                            'warning',
-                            [
-                                { text: 'Excluir Apenas Esta', class: 'bg-yellow-600 hover:bg-yellow-700', action: () => {
-                                    this.state.transactions = this.state.transactions.filter(t => t.id !== id);
-                                    this.saveData(); this.updateUI(); this.closeAllModals();
-                                }},
-                                { text: 'Excluir Esta e Futuras', class: 'bg-red-600 hover:bg-red-700', action: () => {
-                                    this.state.transactions = this.state.transactions.filter(t => {
-                                        if (t.installmentGroupId !== transaction.installmentGroupId) return true;
-                                        return t.dueDate < transaction.dueDate;
-                                    });
-                                    this.saveData(); this.updateUI(); this.closeAllModals();
-                                }},
-                                { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
-                            ]
-                        );
-                    } else {
-                        this.showMessage(
-                            'Excluir Transação',
-                            `Deseja realmente excluir a transação "${transaction.description}"?`,
-                            'warning',
-                            [
-                                { text: 'Confirmar Exclusão', class: 'bg-red-600 hover:bg-red-700', action: () => {
-                                    this.state.transactions = this.state.transactions.filter(t => t.id !== id);
-                                    this.saveData(); this.updateUI(); this.closeAllModals();
-                                }},
-                                { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
-                            ]
-                        );
+                    this.elements.transactionModalTitle.textContent = 'Editar Transação';
+                    form.elements['transaction-id'].value = transaction.id;
+                    form.elements['transaction-description'].value = transaction.description;
+                    form.elements['transaction-amount'].value = transaction.amount;
+                    form.elements['transaction-due-date'].value = this.formatDateForInput(transaction.dueDate);
+                    form.elements['transaction-type'].value = transaction.type;
+                    form.elements['transaction-status'].value = transaction.status;
+                    form.elements['transaction-shortcut-id'].value = transaction.shortcutId || '';
+                    this.elements.installmentsSection.style.display = 'none';
+                } else if (shortcutId) {
+                    const shortcut = this.state.shortcuts.find(s => s.id === shortcutId); if (!shortcut) return;
+                    this.elements.transactionModalTitle.textContent = `Lançar: ${shortcut.name}`;
+                    form.elements['transaction-description'].value = shortcut.name;
+                    form.elements['transaction-amount'].value = shortcut.defaultValue;
+                    form.elements['transaction-type'].value = shortcut.type;
+                    form.elements['transaction-due-date'].value = this.formatDateForInput(new Date());
+                    form.elements['transaction-shortcut-id'].value = shortcut.id;
+                } else {
+                    this.elements.transactionModalTitle.textContent = 'Nova Transação';
+                    form.elements['transaction-due-date'].value = this.formatDateForInput(new Date());
+                }
+                this.openModal('transaction-modal');
+            },
+
+            handleTransactionFormSubmit(e) {
+                e.preventDefault();
+                const form = e.target.elements;
+                const dueDateValue = form['transaction-due-date'].value;
+                if (!dueDateValue) {
+                    this.showMessage('Erro de Validação', 'O campo de data (Vencimento/Recebimento) é obrigatório.', 'error', [{ text: 'OK', class: 'bg-blue-600 hover:bg-blue-700', action: () => this.closeAllModals() }]);
+                    return;
+                }
+
+                const id = form['transaction-id'].value;
+                const amount = parseFloat(form['transaction-amount'].value);
+                const installments = parseInt(form['transaction-installments'].value) || 1;
+                const baseDueDate = new Date(dueDateValue + 'T12:00:00');
+
+                if (id) {
+                    const index = this.state.transactions.findIndex(t => t.id === id);
+                    if (index !== -1) { Object.assign(this.state.transactions[index], { description: form['transaction-description'].value, amount, dueDate: baseDueDate, type: form['transaction-type'].value, status: form['transaction-status'].value }); }
+                } else {
+                    const totalAmount = amount, installmentAmount = parseFloat((totalAmount / installments).toFixed(2)), firstInstallmentAmount = totalAmount - (installmentAmount * (installments - 1));
+                    const baseTransaction = { description: form['transaction-description'].value, type: form['transaction-type'].value, status: form['transaction-status'].value, shortcutId: form['transaction-shortcut-id'].value || null };
+                    const installmentGroupId = crypto.randomUUID();
+                    for (let i = 0; i < installments; i++) {
+                        const newDate = new Date(baseDueDate); newDate.setMonth(baseDueDate.getMonth() + i);
+                        this.state.transactions.push({ ...baseTransaction, id: crypto.randomUUID(), amount: i === 0 ? firstInstallmentAmount : installmentAmount, dueDate: newDate, description: installments > 1 ? `${baseTransaction.description} (${i+1}/${installments})` : baseTransaction.description, installmentGroupId: installments > 1 ? installmentGroupId : null });
                     }
-                },
+                }
+                this.saveData(); this.updateUI(); this.closeAllModals();
+            },
+            toggleTransactionStatus(id, isPaid) {
+                const transaction = this.state.transactions.find(t => t.id === id);
+                if (transaction) { transaction.status = isPaid ? 'paid' : 'pending'; this.saveData(); this.updateUI(); }
+            },
+
+            confirmDeleteTransaction(id) {
+                const transaction = this.state.transactions.find(t => t.id === id); if (!transaction) return;
                 
-                // Shortcut Logic (existing)
-                 openShortcutModal(id = null) {
-                    const form = this.elements.shortcutForm;
-                    form.reset();
-                    form.elements['shortcut-id'].value = '';
-                    this.elements.shortcutEffectiveDateSection.classList.add('hidden');
-                    this.elements.shortcutDueDaySection.classList.add('hidden');
-                    this.populateIcons();
-
-                    if(id) { // Editing existing shortcut
-                        const shortcut = this.state.shortcuts.find(s => s.id === id); if(!shortcut) return;
-                        this.elements.shortcutModalTitle.textContent = 'Editar Atalho';
-                        form.elements['shortcut-id'].value = shortcut.id; 
-                        form.elements['shortcut-name'].value = shortcut.name; 
-                        form.elements['shortcut-type'].value = shortcut.type;
-                        form.elements['shortcut-frequency'].value = shortcut.frequency; 
-                        form.elements['shortcut-value'].value = shortcut.defaultValue; 
-                        form.elements['shortcut-icon'].value = shortcut.icon;
-                        const iconBtn = this.elements.iconSelection.querySelector(`[data-icon="${shortcut.icon}"]`);
-                        if(iconBtn) iconBtn.classList.add('ring-2', 'ring-blue-500');
-
-                        if (shortcut.frequency === 'fixed') {
-                            this.elements.shortcutDueDaySection.classList.remove('hidden');
-                            this.elements.shortcutEffectiveDateSection.classList.remove('hidden');
-                            form.elements['shortcut-due-day'].value = shortcut.dueDay || 1;
-                            form.elements['shortcut-effective-date'].value = this.formatDateForInput(new Date());
-                        }
-
-                    } else { // Creating new shortcut
-                        this.elements.shortcutModalTitle.textContent = 'Novo Atalho';
-                        form.elements['shortcut-due-day'].value = 1; // Default due day
-                        const firstIcon = this.elements.iconSelection.querySelector('.icon-btn');
-                        if(firstIcon) { firstIcon.classList.add('ring-2', 'ring-blue-500'); form.elements['shortcut-icon'].value = firstIcon.dataset.icon; }
-                    }
-                    this.openModal('shortcut-modal');
-                },
-
-                handleShortcutFormSubmit(e) {
-                    e.preventDefault();
-                    const form = e.target.elements;
-                    const id = form['shortcut-id'].value;
-                    const shortcutData = { 
-                        name: form['shortcut-name'].value, 
-                        type: form['shortcut-type'].value, 
-                        frequency: form['shortcut-frequency'].value, 
-                        defaultValue: parseFloat(form['shortcut-value'].value), 
-                        icon: form['shortcut-icon'].value,
-                        dueDay: parseInt(form['shortcut-due-day'].value) || 1,
-                    };
-                    
-                    if (id) { // Update logic
-                        const index = this.state.shortcuts.findIndex(s => s.id === id); if (index === -1) return;
-                        const originalShortcut = this.state.shortcuts[index];
-                        const isFixedChange = originalShortcut.frequency === 'fixed' && 
-                            (originalShortcut.defaultValue !== shortcutData.defaultValue || 
-                             originalShortcut.type !== shortcutData.type ||
-                             originalShortcut.dueDay !== shortcutData.dueDay);
-
-                        if (isFixedChange) {
-                            const effectiveDateValue = form['shortcut-effective-date'].value;
-                            if (!effectiveDateValue) {
-                                this.showMessage('Data Necessária', 'Por favor, especifique a partir de qual data a alteração deve valer.', 'error', [{text: 'OK', class: 'bg-blue-600', action: () => {}}]);
-                                return;
-                            }
-                            const effectiveDate = new Date(effectiveDateValue + 'T00:00:00');
-
-                            this.showMessage(
-                                'Alteração de Atalho Fixo',
-                                `As transações pendentes geradas por este atalho a partir de ${effectiveDate.toLocaleDateString('pt-BR')} serão recriadas com os novos dados. Deseja continuar?`,
-                                'warning',
-                                [
-                                    { text: 'Confirmar', class: 'bg-blue-600 hover:bg-blue-700', action: () => {
-                                        this.state.shortcuts[index] = { ...originalShortcut, ...shortcutData };
-
-                                        this.state.transactions = this.state.transactions.filter(t => 
-                                            !(t.shortcutId === id && t.isAutoGenerated && t.status === 'pending' && t.dueDate >= effectiveDate)
-                                        );
-                                        
-                                        this.saveData();
-                                        this.updateUI();
-                                        this.closeAllModals();
-                                    }},
-                                    { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
-                                ]
-                            );
-                        } else {
-                             this.state.shortcuts[index] = { ...originalShortcut, ...shortcutData };
-                             this.saveData(); this.updateUI(); this.closeAllModals();
-                        }
-                    } else { // Create logic
-                        const newShortcut = { id: crypto.randomUUID(), createdAt: new Date(), ...shortcutData };
-                        this.state.shortcuts.push(newShortcut);
-                        this.generateFixedTransactionsForCurrentPeriod(true); 
-                        this.saveData(); this.updateUI(); this.closeAllModals();
-                    }
-                },
-                
-                 confirmDeleteShortcut(id) {
-                    const shortcut = this.state.shortcuts.find(s => s.id === id); if (!shortcut) return;
-                    const message = shortcut.frequency === 'fixed'
-                        ? `Isto também excluirá todas as transações futuras (pendentes) geradas por este atalho, a partir do período atual. O histórico passado será mantido.`
-                        : `As transações existentes não serão afetadas.`;
-                    
+                if (transaction.installmentGroupId) {
                     this.showMessage(
-                        'Excluir Atalho',
-                        `Deseja realmente excluir o atalho "${shortcut.name}"? ${message}`,
+                        'Excluir Parcela',
+                        'Esta transação faz parte de um parcelamento. Como deseja prosseguir?',
                         'warning',
                         [
-                            { text: 'Confirmar Exclusão', class: 'bg-red-600 hover:bg-red-700', action: () => {
-                                if (shortcut.frequency === 'fixed') {
-                                    const referenceDate = this.getPeriod(this.state.currentDateForPeriod).start;
-                                    this.state.transactions = this.state.transactions.filter(t => 
-                                        !(t.shortcutId === id && t.isAutoGenerated && t.dueDate >= referenceDate && t.status === 'pending')
-                                    );
-                                }
-                                this.state.shortcuts = this.state.shortcuts.filter(s => s.id !== id);
+                            { text: 'Excluir Apenas Esta', class: 'bg-yellow-600 hover:bg-yellow-700', action: () => {
+                                this.state.transactions = this.state.transactions.filter(t => t.id !== id);
+                                this.saveData(); this.updateUI(); this.closeAllModals();
+                            }},
+                            { text: 'Excluir Esta e Futuras', class: 'bg-red-600 hover:bg-red-700', action: () => {
+                                this.state.transactions = this.state.transactions.filter(t => {
+                                    if (t.installmentGroupId !== transaction.installmentGroupId) return true;
+                                    return t.dueDate < transaction.dueDate;
+                                });
                                 this.saveData(); this.updateUI(); this.closeAllModals();
                             }},
                             { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
                         ]
                     );
-                },
-
-                // --- ADVANCED LOGIC: FIXED & BALANCE TRANSACTIONS ---
-                generateFixedTransactionsForCurrentPeriod(forceSave = false) {
-                    let hasChanged = false;
-                    const period = this.getPeriod(this.state.currentDateForPeriod);
-
-                    this.state.shortcuts.filter(s => s.frequency === 'fixed').forEach(shortcut => {
-                        const dueDay = shortcut.dueDay || 1;
-                        const transactionDate = new Date(period.start.getFullYear(), period.start.getMonth(), dueDay);
-                        
-                        if (shortcut.createdAt) {
-                            const creationDate = new Date(shortcut.createdAt);
-                            if (transactionDate.getFullYear() < creationDate.getFullYear() ||
-                               (transactionDate.getFullYear() === creationDate.getFullYear() && transactionDate.getMonth() < creationDate.getMonth())) {
-                                return; 
-                            }
-                        }
-
-                        const existing = this.state.transactions.find(t => 
-                            t.shortcutId === shortcut.id && 
-                            t.dueDate.getFullYear() === transactionDate.getFullYear() &&
-                            t.dueDate.getMonth() === transactionDate.getMonth()
-                        );
-
-                        if (!existing) {
-                            hasChanged = true;
-                            this.state.transactions.push({ 
-                                id: crypto.randomUUID(), 
-                                description: shortcut.name, 
-                                amount: shortcut.defaultValue, 
-                                dueDate: transactionDate, 
-                                type: shortcut.type, 
-                                status: 'pending', 
-                                shortcutId: shortcut.id, 
-                                isAutoGenerated: true 
-                            });
-                        }
-                    });
-                    
-                    if (hasChanged || forceSave) {
-                        this.saveData();
-                    }
-                },
-
-                generateBalanceTransferForCurrentPeriod() {
-                    let hasChanged = false;
-                    const currentPeriod = this.getPeriod(this.state.currentDateForPeriod);
-                    const prevMonthDate = new Date(currentPeriod.start);
-                    prevMonthDate.setDate(0); // Go to the last day of the previous month
-                    const prevPeriod = this.getPeriod(prevMonthDate);
-
-                    // 1. Calculate the realized balance from the previous period (excluding any previous balance transfers)
-                    const prevPeriodTransactions = this.state.transactions.filter(t =>
-                        t.dueDate >= prevPeriod.start && t.dueDate <= prevPeriod.end && !t.isBalanceTransfer
-                    );
-                    const received = prevPeriodTransactions.filter(t => t.type === 'revenue' && t.status === 'paid').reduce((sum, t) => sum + t.amount, 0);
-                    const paid = prevPeriodTransactions.filter(t => t.type === 'expense' && t.status === 'paid').reduce((sum, t) => sum + t.amount, 0);
-                    const realizedBalance = received - paid;
-
-                    // 2. Find the existing balance transfer transaction in the CURRENT period
-                    const existingTransferIndex = this.state.transactions.findIndex(t =>
-                        t.isBalanceTransfer &&
-                        t.dueDate.getFullYear() === currentPeriod.start.getFullYear() &&
-                        t.dueDate.getMonth() === currentPeriod.start.getMonth()
-                    );
-
-                    const newAmount = Math.abs(realizedBalance);
-                    const newType = realizedBalance >= 0 ? 'revenue' : 'expense';
-
-                    if (existingTransferIndex > -1) {
-                        // A transfer already exists, check if it needs update or deletion
-                        const existingTransfer = this.state.transactions[existingTransferIndex];
-
-                        if (realizedBalance === 0) {
-                            // If new balance is zero, delete the transfer
-                            this.state.transactions.splice(existingTransferIndex, 1);
-                            hasChanged = true;
-                        } else if (existingTransfer.amount !== newAmount || existingTransfer.type !== newType) {
-                            // If balance changed, update the transfer
-                            existingTransfer.amount = newAmount;
-                            existingTransfer.type = newType;
-                            existingTransfer.description = `Saldo Mês Anterior (${prevMonthDate.toLocaleDateString('pt-BR', {month: 'long'})})`;
-                            hasChanged = true;
-                        }
-                    } else if (realizedBalance !== 0) {
-                        // No transfer exists and the balance is not zero, so create one
-                        hasChanged = true;
-                        this.state.transactions.push({
-                            id: crypto.randomUUID(),
-                            description: `Saldo Mês Anterior (${prevMonthDate.toLocaleDateString('pt-BR', {month: 'long'})})`,
-                            amount: newAmount,
-                            dueDate: currentPeriod.start, // First day of the current month
-                            type: newType,
-                            status: 'paid',
-                            isBalanceTransfer: true,
-                        });
-                    }
-
-                    if (hasChanged) {
-                        this.saveData();
-                    }
-                },
-                
-                // --- CONSULTORIA MODULE ---
-                renderClientList() {
-                    const container = this.elements.clientListContainer;
-                    if(this.state.clients.length === 0){
-                        container.innerHTML = `<div class="text-center py-12 text-gray-500 col-span-full"><i data-lucide="users" class="w-16 h-16 mx-auto mb-4"></i><p>Nenhum cliente cadastrado.</p><p>Clique em "Novo Cliente" para começar.</p></div>`;
-                        return;
-                    }
-                    container.innerHTML = this.state.clients.map(client => `
-                        <div class="bg-gray-800 p-4 rounded-lg shadow-lg flex flex-col justify-between">
-                            <div>
-                                <h3 class="text-xl font-bold text-white">${client.name}</h3>
-                                <p class="text-gray-400">${this.formatCurrency(client.rate)} / cabeça</p>
-                            </div>
-                            <div class="mt-4 flex space-x-2">
-                                <button class="edit-client-btn flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-id="${client.id}">Editar</button>
-                                <button class="view-slaughters-btn flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors" data-id="${client.id}">Visualizar Abates</button>
-                            </div>
-                        </div>
-                    `).join('');
-                },
-                
-                renderSlaughterDetail() {
-                    const client = this.state.clients.find(c => c.id === this.state.currentClientId);
-                    if (!client) {
-                        this.switchView('consultoria-list');
-                        return;
-                    }
-
-                    this.elements.slaughterClientName.textContent = client.name;
-                    this.elements.slaughterClientRate.textContent = `${this.formatCurrency(client.rate)} / cabeça`;
-
-                    const container = this.elements.slaughterListContainer;
-                    const period = this.getPeriod(this.state.currentDateForPeriod);
-                    const slaughtersInPeriod = this.state.slaughters
-                        .filter(s => s.clientId === client.id && s.date >= period.start && s.date <= period.end)
-                        .sort((a,b) => b.date - a.date);
-
-                    if (slaughtersInPeriod.length === 0) {
-                        container.innerHTML = `<div class="text-center py-8 text-gray-500"><i data-lucide="archive" class="w-12 h-12 mx-auto mb-2"></i><p>Nenhum abate registrado para este cliente no período.</p></div>`;
-                        return;
-                    }
-
-                    container.innerHTML = `
-                        <div class="hidden md:grid grid-cols-5 gap-4 font-bold p-2 text-gray-400 text-sm">
-                            <div>Data</div>
-                            <div class="text-center">Cabeças</div>
-                            <div class="text-right">Receita Total</div>
-                            <div class="text-right">Custo Total</div>
-                            <div class="text-right">Ações</div>
-                        </div>
-                        ${slaughtersInPeriod.map(s => {
-                            const totalRevenue = (s.heads * client.rate) + (s.revenueTravel || 0);
-                            const totalCost = (s.costTravel || 0) + (s.costDaily || 0);
-                            return `
-                                <div class="grid grid-cols-2 md:grid-cols-5 gap-4 items-center p-3 rounded-lg hover:bg-gray-700/50 border-b border-gray-700 last:border-b-0">
-                                    <div>${s.date.toLocaleDateString('pt-BR')}</div>
-                                    <div class="text-center">${s.heads}</div>
-                                    <div class="text-right text-green-400">${this.formatCurrency(totalRevenue)}</div>
-                                    <div class="text-right text-red-400">${this.formatCurrency(totalCost)}</div>
-                                    <div class="flex justify-end space-x-2">
-                                        <button class="edit-slaughter-btn p-2 text-gray-400 hover:text-blue-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${s.id}"><i data-lucide="edit-2" class="w-4 h-4 pointer-events-none"></i></button>
-                                        <button class="delete-slaughter-btn p-2 text-gray-400 hover:text-red-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${s.id}"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
-                    `;
-                },
-
-                openClientModal(id = null) {
-                    const form = this.elements.clientForm;
-                    form.reset();
-                    if(id) {
-                        const client = this.state.clients.find(c => c.id === id);
-                        if(!client) return;
-                        this.elements.clientModalTitle.textContent = 'Editar Cliente';
-                        form.elements['client-id'].value = client.id;
-                        form.elements['client-name'].value = client.name;
-                        form.elements['client-rate'].value = client.rate;
-                    } else {
-                        this.elements.clientModalTitle.textContent = 'Novo Cliente';
-                        form.elements['client-id'].value = '';
-                    }
-                    this.openModal('client-modal');
-                },
-
-                handleClientFormSubmit(e) {
-                    e.preventDefault();
-                    const form = e.target.elements;
-                    const id = form['client-id'].value;
-                    const clientData = {
-                        name: form['client-name'].value,
-                        rate: parseFloat(form['client-rate'].value)
-                    };
-
-                    if(id) {
-                        const index = this.state.clients.findIndex(c => c.id === id);
-                        if(index > -1) {
-                            this.state.clients[index] = {...this.state.clients[index], ...clientData};
-                        }
-                    } else {
-                        this.state.clients.push({id: crypto.randomUUID(), ...clientData});
-                    }
-                    this.saveData();
-                    this.updateUI();
-                    this.closeAllModals();
-                },
-                
-                openSlaughterModal(id = null) {
-                    const form = this.elements.slaughterForm;
-                    form.reset();
-                    form.elements['slaughter-client-id'].value = this.state.currentClientId;
-
-                    if(id){
-                        const slaughter = this.state.slaughters.find(s => s.id === id);
-                        if(!slaughter) return;
-                        this.elements.slaughterModalTitle.textContent = "Editar Abate";
-                        form.elements['slaughter-id'].value = slaughter.id;
-                        form.elements['slaughter-date'].value = this.formatDateForInput(slaughter.date);
-                        form.elements['slaughter-heads'].value = slaughter.heads;
-                        form.elements['slaughter-revenue-travel'].value = slaughter.revenueTravel || '';
-                        form.elements['slaughter-cost-travel'].value = slaughter.costTravel || '';
-                        form.elements['slaughter-cost-daily'].value = slaughter.costDaily || '';
-                    } else {
-                        this.elements.slaughterModalTitle.textContent = "Novo Abate";
-                        form.elements['slaughter-id'].value = '';
-                        form.elements['slaughter-date'].value = this.formatDateForInput(new Date());
-                    }
-                    this.openModal('slaughter-modal');
-                },
-
-                handleSlaughterFormSubmit(e) {
-                    e.preventDefault();
-                    const form = e.target.elements;
-                    const id = form['slaughter-id'].value;
-                    const clientId = form['slaughter-client-id'].value;
-                    const client = this.state.clients.find(c => c.id === clientId);
-                    if(!client) return;
-
-                    const slaughterData = {
-                        clientId: clientId,
-                        date: new Date(form['slaughter-date'].value + "T12:00:00"),
-                        heads: parseInt(form['slaughter-heads'].value),
-                        revenueTravel: parseFloat(form['slaughter-revenue-travel'].value) || 0,
-                        costTravel: parseFloat(form['slaughter-cost-travel'].value) || 0,
-                        costDaily: parseFloat(form['slaughter-cost-daily'].value) || 0,
-                    };
-                    
-                    // Remove old linked transactions if editing
-                    if(id) {
-                        this.state.transactions = this.state.transactions.filter(t => t.slaughterId !== id);
-                    }
-                    
-                    const slaughterId = id || crypto.randomUUID();
-
-                    // Create new linked transactions
-                    const mainRevenue = slaughterData.heads * client.rate + slaughterData.revenueTravel;
-                    this.state.transactions.push({
-                        id: crypto.randomUUID(),
-                        description: `Abate - ${client.name}`,
-                        amount: mainRevenue,
-                        dueDate: slaughterData.date,
-                        type: 'revenue',
-                        status: 'pending',
-                        slaughterId: slaughterId
-                    });
-                    if(slaughterData.costTravel > 0) {
-                        this.state.transactions.push({
-                            id: crypto.randomUUID(),
-                            description: `Custo Deslocamento - ${client.name}`,
-                            amount: slaughterData.costTravel,
-                            dueDate: slaughterData.date,
-                            type: 'expense',
-                            status: 'pending',
-                            slaughterId: slaughterId
-                        });
-                    }
-                     if(slaughterData.costDaily > 0) {
-                        this.state.transactions.push({
-                            id: crypto.randomUUID(),
-                            description: `Custo Diarista - ${client.name}`,
-                            amount: slaughterData.costDaily,
-                            dueDate: slaughterData.date,
-                            type: 'expense',
-                            status: 'pending',
-                            slaughterId: slaughterId
-                        });
-                    }
-
-                    // Save or update slaughter
-                    if(id) {
-                        const index = this.state.slaughters.findIndex(s => s.id === id);
-                        this.state.slaughters[index] = { ...this.state.slaughters[index], ...slaughterData };
-                    } else {
-                        this.state.slaughters.push({id: slaughterId, ...slaughterData});
-                    }
-
-                    this.saveData();
-                    this.updateUI();
-                    this.closeAllModals();
-                },
-
-                confirmDeleteSlaughter(id){
-                     this.showMessage(
-                        'Excluir Abate',
-                        `Deseja realmente excluir este registro de abate? Todas as transações financeiras vinculadas (receitas e despesas) também serão removidas.`,
+                } else {
+                    this.showMessage(
+                        'Excluir Transação',
+                        `Deseja realmente excluir a transação "${transaction.description}"?`,
                         'warning',
                         [
                             { text: 'Confirmar Exclusão', class: 'bg-red-600 hover:bg-red-700', action: () => {
-                                // Remove slaughter and linked transactions
-                                this.state.slaughters = this.state.slaughters.filter(s => s.id !== id);
-                                this.state.transactions = this.state.transactions.filter(t => t.slaughterId !== id);
-                                this.saveData();
-                                this.updateUI();
-                                this.closeAllModals();
+                                this.state.transactions = this.state.transactions.filter(t => t.id !== id);
+                                this.saveData(); this.updateUI(); this.closeAllModals();
                             }},
                             { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
                         ]
                     );
-                },
-
-
-                // --- DYNAMIC MESSAGE MODAL ---
-                showMessage(title, message, type = 'info', buttons) {
-                    this.elements.confirmationTitle.textContent = title;
-                    this.elements.confirmationMessage.innerHTML = message; 
-                    this.elements.confirmationButtons.innerHTML = '';
-
-                    const icons = {
-                        warning: { bg: 'bg-yellow-200', text: 'text-yellow-600', icon: 'alert-triangle' },
-                        error: { bg: 'bg-red-200', text: 'text-red-600', icon: 'alert-circle' },
-                        info: { bg: 'bg-blue-200', text: 'text-blue-600', icon: 'info' }
-                    };
-                    const selectedIcon = icons[type] || icons.info;
-                    this.elements.confirmationIcon.className = `mx-auto flex items-center justify-center h-12 w-12 rounded-full ${selectedIcon.bg} mb-4`;
-                    this.elements.confirmationIcon.innerHTML = `<i data-lucide="${selectedIcon.icon}" class="h-6 w-6 ${selectedIcon.text}"></i>`;
-                    
-                    buttons.forEach(btnInfo => {
-                        const button = document.createElement('button');
-                        button.textContent = btnInfo.text;
-                        button.className = `w-full sm:w-auto inline-flex justify-center rounded-md border border-transparent px-4 py-2 text-base font-medium text-white shadow-sm focus:outline-none ${btnInfo.class}`;
-                        button.onclick = btnInfo.action;
-                        this.elements.confirmationButtons.appendChild(button);
-                    });
-                    
-                    lucide.createIcons();
-                    this.openModal('confirmation-modal');
-                },
-
-                // --- HELPER FUNCTIONS ---
-                formatCurrency(value) { return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); },
-                formatDateForInput(date) { const d = new Date(date); let month = '' + (d.getMonth() + 1), day = '' + d.getDate(); if (month.length < 2) month = '0' + month; if (day.length < 2) day = '0' + day; return [d.getFullYear(), month, day].join('-'); },
-                populateIcons() {
-                    this.elements.iconSelection.innerHTML = this.iconList.map(icon => `<button type="button" class="icon-btn p-2 rounded-lg bg-gray-600 hover:bg-gray-500 flex items-center justify-center" data-icon="${icon}"><i data-lucide="${icon}" class="w-6 h-6 pointer-events-none"></i></button>`).join('');
                 }
-            };
-            App.init();
+            },
+            
+            // Shortcut Logic (existing)
+             openShortcutModal(id = null) {
+                const form = this.elements.shortcutForm;
+                form.reset();
+                form.elements['shortcut-id'].value = '';
+                this.elements.shortcutEffectiveDateSection.classList.add('hidden');
+                this.elements.shortcutDueDaySection.classList.add('hidden');
+                this.populateIcons();
+
+                if(id) { // Editing existing shortcut
+                    const shortcut = this.state.shortcuts.find(s => s.id === id); if(!shortcut) return;
+                    this.elements.shortcutModalTitle.textContent = 'Editar Atalho';
+                    form.elements['shortcut-id'].value = shortcut.id; 
+                    form.elements['shortcut-name'].value = shortcut.name; 
+                    form.elements['shortcut-type'].value = shortcut.type;
+                    form.elements['shortcut-frequency'].value = shortcut.frequency; 
+                    form.elements['shortcut-value'].value = shortcut.defaultValue; 
+                    form.elements['shortcut-icon'].value = shortcut.icon;
+                    const iconBtn = this.elements.iconSelection.querySelector(`[data-icon="${shortcut.icon}"]`);
+                    if(iconBtn) iconBtn.classList.add('ring-2', 'ring-blue-500');
+
+                    if (shortcut.frequency === 'fixed') {
+                        this.elements.shortcutDueDaySection.classList.remove('hidden');
+                        this.elements.shortcutEffectiveDateSection.classList.remove('hidden');
+                        form.elements['shortcut-due-day'].value = shortcut.dueDay || 1;
+                        form.elements['shortcut-effective-date'].value = this.formatDateForInput(new Date());
+                    }
+
+                } else { // Creating new shortcut
+                    this.elements.shortcutModalTitle.textContent = 'Novo Atalho';
+                    form.elements['shortcut-due-day'].value = 1; // Default due day
+                    const firstIcon = this.elements.iconSelection.querySelector('.icon-btn');
+                    if(firstIcon) { firstIcon.classList.add('ring-2', 'ring-blue-500'); form.elements['shortcut-icon'].value = firstIcon.dataset.icon; }
+                }
+                this.openModal('shortcut-modal');
+            },
+
+            handleShortcutFormSubmit(e) {
+                e.preventDefault();
+                const form = e.target.elements;
+                const id = form['shortcut-id'].value;
+                const shortcutData = { 
+                    name: form['shortcut-name'].value, 
+                    type: form['shortcut-type'].value, 
+                    frequency: form['shortcut-frequency'].value, 
+                    defaultValue: parseFloat(form['shortcut-value'].value), 
+                    icon: form['shortcut-icon'].value,
+                    dueDay: parseInt(form['shortcut-due-day'].value) || 1,
+                };
+                
+                if (id) { // Update logic
+                    const index = this.state.shortcuts.findIndex(s => s.id === id); if (index === -1) return;
+                    const originalShortcut = this.state.shortcuts[index];
+                    const isFixedChange = originalShortcut.frequency === 'fixed' && 
+                        (originalShortcut.defaultValue !== shortcutData.defaultValue || 
+                         originalShortcut.type !== shortcutData.type ||
+                         originalShortcut.dueDay !== shortcutData.dueDay);
+
+                    if (isFixedChange) {
+                        const effectiveDateValue = form['shortcut-effective-date'].value;
+                        if (!effectiveDateValue) {
+                            this.showMessage('Data Necessária', 'Por favor, especifique a partir de qual data a alteração deve valer.', 'error', [{text: 'OK', class: 'bg-blue-600', action: () => {}}]);
+                            return;
+                        }
+                        const effectiveDate = new Date(effectiveDateValue + 'T00:00:00');
+
+                        this.showMessage(
+                            'Alteração de Atalho Fixo',
+                            `As transações pendentes geradas por este atalho a partir de ${effectiveDate.toLocaleDateString('pt-BR')} serão recriadas com os novos dados. Deseja continuar?`,
+                            'warning',
+                            [
+                                { text: 'Confirmar', class: 'bg-blue-600 hover:bg-blue-700', action: () => {
+                                    this.state.shortcuts[index] = { ...originalShortcut, ...shortcutData };
+
+                                    this.state.transactions = this.state.transactions.filter(t => 
+                                        !(t.shortcutId === id && t.isAutoGenerated && t.status === 'pending' && t.dueDate >= effectiveDate)
+                                    );
+                                    
+                                    this.saveData();
+                                    this.updateUI();
+                                    this.closeAllModals();
+                                }},
+                                { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
+                            ]
+                        );
+                    } else {
+                         this.state.shortcuts[index] = { ...originalShortcut, ...shortcutData };
+                         this.saveData(); this.updateUI(); this.closeAllModals();
+                    }
+                } else { // Create logic
+                    const newShortcut = { id: crypto.randomUUID(), createdAt: new Date(), ...shortcutData };
+                    this.state.shortcuts.push(newShortcut);
+                    this.generateFixedTransactionsForCurrentPeriod(true); 
+                    this.saveData(); this.updateUI(); this.closeAllModals();
+                }
+            },
+            
+             confirmDeleteShortcut(id) {
+                const shortcut = this.state.shortcuts.find(s => s.id === id); if (!shortcut) return;
+                const message = shortcut.frequency === 'fixed'
+                    ? `Isto também excluirá todas as transações futuras (pendentes) geradas por este atalho, a partir do período atual. O histórico passado será mantido.`
+                    : `As transações existentes não serão afetadas.`;
+                
+                this.showMessage(
+                    'Excluir Atalho',
+                    `Deseja realmente excluir o atalho "${shortcut.name}"? ${message}`,
+                    'warning',
+                    [
+                        { text: 'Confirmar Exclusão', class: 'bg-red-600 hover:bg-red-700', action: () => {
+                            if (shortcut.frequency === 'fixed') {
+                                const referenceDate = this.getPeriod(this.state.currentDateForPeriod).start;
+                                this.state.transactions = this.state.transactions.filter(t => 
+                                    !(t.shortcutId === id && t.isAutoGenerated && t.dueDate >= referenceDate && t.status === 'pending')
+                                );
+                            }
+                            this.state.shortcuts = this.state.shortcuts.filter(s => s.id !== id);
+                            this.saveData(); this.updateUI(); this.closeAllModals();
+                        }},
+                        { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
+                    ]
+                );
+            },
+
+            // --- ADVANCED LOGIC: FIXED & BALANCE TRANSACTIONS ---
+            generateFixedTransactionsForCurrentPeriod(forceSave = false) {
+                let hasChanged = false;
+                const period = this.getPeriod(this.state.currentDateForPeriod);
+
+                this.state.shortcuts.filter(s => s.frequency === 'fixed').forEach(shortcut => {
+                    const dueDay = shortcut.dueDay || 1;
+                    const transactionDate = new Date(period.start.getFullYear(), period.start.getMonth(), dueDay);
+                    
+                    if (shortcut.createdAt) {
+                        const creationDate = new Date(shortcut.createdAt);
+                        if (transactionDate.getFullYear() < creationDate.getFullYear() ||
+                           (transactionDate.getFullYear() === creationDate.getFullYear() && transactionDate.getMonth() < creationDate.getMonth())) {
+                            return; 
+                        }
+                    }
+
+                    const existing = this.state.transactions.find(t => 
+                        t.shortcutId === shortcut.id && 
+                        t.dueDate.getFullYear() === transactionDate.getFullYear() &&
+                        t.dueDate.getMonth() === transactionDate.getMonth()
+                    );
+
+                    if (!existing) {
+                        hasChanged = true;
+                        this.state.transactions.push({ 
+                            id: crypto.randomUUID(), 
+                            description: shortcut.name, 
+                            amount: shortcut.defaultValue, 
+                            dueDate: transactionDate, 
+                            type: shortcut.type, 
+                            status: 'pending', 
+                            shortcutId: shortcut.id, 
+                            isAutoGenerated: true 
+                        });
+                    }
+                });
+                
+                if (hasChanged || forceSave) {
+                    this.saveData();
+                }
+            },
+
+            generateBalanceTransferForCurrentPeriod() {
+                let hasChanged = false;
+                const currentPeriod = this.getPeriod(this.state.currentDateForPeriod);
+                const prevMonthDate = new Date(currentPeriod.start);
+                prevMonthDate.setDate(0); // Go to the last day of the previous month
+                const prevPeriod = this.getPeriod(prevMonthDate);
+
+                // 1. Calculate the realized balance from the previous period (excluding any previous balance transfers)
+                const prevPeriodTransactions = this.state.transactions.filter(t =>
+                    t.dueDate >= prevPeriod.start && t.dueDate <= prevPeriod.end && !t.isBalanceTransfer
+                );
+                const received = prevPeriodTransactions.filter(t => t.type === 'revenue' && t.status === 'paid').reduce((sum, t) => sum + t.amount, 0);
+                const paid = prevPeriodTransactions.filter(t => t.type === 'expense' && t.status === 'paid').reduce((sum, t) => sum + t.amount, 0);
+                const realizedBalance = received - paid;
+
+                // 2. Find the existing balance transfer transaction in the CURRENT period
+                const existingTransferIndex = this.state.transactions.findIndex(t =>
+                    t.isBalanceTransfer &&
+                    t.dueDate.getFullYear() === currentPeriod.start.getFullYear() &&
+                    t.dueDate.getMonth() === currentPeriod.start.getMonth()
+                );
+
+                const newAmount = Math.abs(realizedBalance);
+                const newType = realizedBalance >= 0 ? 'revenue' : 'expense';
+
+                if (existingTransferIndex > -1) {
+                    // A transfer already exists, check if it needs update or deletion
+                    const existingTransfer = this.state.transactions[existingTransferIndex];
+
+                    if (realizedBalance === 0) {
+                        // If new balance is zero, delete the transfer
+                        this.state.transactions.splice(existingTransferIndex, 1);
+                        hasChanged = true;
+                    } else if (existingTransfer.amount !== newAmount || existingTransfer.type !== newType) {
+                        // If balance changed, update the transfer
+                        existingTransfer.amount = newAmount;
+                        existingTransfer.type = newType;
+                        existingTransfer.description = `Saldo Mês Anterior (${prevMonthDate.toLocaleDateString('pt-BR', {month: 'long'})})`;
+                        hasChanged = true;
+                    }
+                } else if (realizedBalance !== 0) {
+                    // No transfer exists and the balance is not zero, so create one
+                    hasChanged = true;
+                    this.state.transactions.push({
+                        id: crypto.randomUUID(),
+                        description: `Saldo Mês Anterior (${prevMonthDate.toLocaleDateString('pt-BR', {month: 'long'})})`,
+                        amount: newAmount,
+                        dueDate: currentPeriod.start, // First day of the current month
+                        type: newType,
+                        status: 'paid',
+                        isBalanceTransfer: true,
+                    });
+                }
+
+                if (hasChanged) {
+                    this.saveData();
+                }
+            },
+            
+            // --- CONSULTORIA MODULE ---
+            renderClientList() {
+                const container = this.elements.clientListContainer;
+                if(this.state.clients.length === 0){
+                    container.innerHTML = `<div class="text-center py-12 text-gray-500 col-span-full"><i data-lucide="users" class="w-16 h-16 mx-auto mb-4"></i><p>Nenhum cliente cadastrado.</p><p>Clique em "Novo Cliente" para começar.</p></div>`;
+                    return;
+                }
+                container.innerHTML = this.state.clients.map(client => `
+                    <div class="bg-gray-800 p-4 rounded-lg shadow-lg flex flex-col justify-between">
+                        <div>
+                            <h3 class="text-xl font-bold text-white">${client.name}</h3>
+                            <p class="text-gray-400">${this.formatCurrency(client.rate)} / cabeça</p>
+                        </div>
+                        <div class="mt-4 flex space-x-2">
+                            <button class="edit-client-btn flex-1 bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-4 rounded-lg transition-colors" data-id="${client.id}">Editar</button>
+                            <button class="view-slaughters-btn flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors" data-id="${client.id}">Visualizar Abates</button>
+                        </div>
+                    </div>
+                `).join('');
+            },
+            
+            renderSlaughterDetail() {
+                const client = this.state.clients.find(c => c.id === this.state.currentClientId);
+                if (!client) {
+                    this.switchView('consultoria-list');
+                    return;
+                }
+
+                this.elements.slaughterClientName.textContent = client.name;
+                this.elements.slaughterClientRate.textContent = `${this.formatCurrency(client.rate)} / cabeça`;
+
+                const container = this.elements.slaughterListContainer;
+                const period = this.getPeriod(this.state.currentDateForPeriod);
+                const slaughtersInPeriod = this.state.slaughters
+                    .filter(s => s.clientId === client.id && s.date >= period.start && s.date <= period.end)
+                    .sort((a,b) => b.date - a.date);
+
+                if (slaughtersInPeriod.length === 0) {
+                    container.innerHTML = `<div class="text-center py-8 text-gray-500"><i data-lucide="archive" class="w-12 h-12 mx-auto mb-2"></i><p>Nenhum abate registrado para este cliente no período.</p></div>`;
+                    return;
+                }
+
+                container.innerHTML = `
+                    <div class="hidden md:grid grid-cols-5 gap-4 font-bold p-2 text-gray-400 text-sm">
+                        <div>Data</div>
+                        <div class="text-center">Cabeças</div>
+                        <div class="text-right">Receita Total</div>
+                        <div class="text-right">Custo Total</div>
+                        <div class="text-right">Ações</div>
+                    </div>
+                    ${slaughtersInPeriod.map(s => {
+                        const totalRevenue = (s.heads * client.rate) + (s.revenueTravel || 0);
+                        const totalCost = (s.costTravel || 0) + (s.costDaily || 0);
+                        return `
+                            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 items-center p-3 rounded-lg hover:bg-gray-700/50 border-b border-gray-700 last:border-b-0">
+                                <div>${s.date.toLocaleDateString('pt-BR')}</div>
+                                <div class="text-center">${s.heads}</div>
+                                <div class="text-right text-green-400">${this.formatCurrency(totalRevenue)}</div>
+                                <div class="text-right text-red-400">${this.formatCurrency(totalCost)}</div>
+                                <div class="flex justify-end space-x-2">
+                                    <button class="edit-slaughter-btn p-2 text-gray-400 hover:text-blue-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${s.id}"><i data-lucide="edit-2" class="w-4 h-4 pointer-events-none"></i></button>
+                                    <button class="delete-slaughter-btn p-2 text-gray-400 hover:text-red-400 rounded-full hover:bg-gray-600 transition-colors" data-id="${s.id}"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                `;
+            },
+
+            openClientModal(id = null) {
+                const form = this.elements.clientForm;
+                form.reset();
+                if(id) {
+                    const client = this.state.clients.find(c => c.id === id);
+                    if(!client) return;
+                    this.elements.clientModalTitle.textContent = 'Editar Cliente';
+                    form.elements['client-id'].value = client.id;
+                    form.elements['client-name'].value = client.name;
+                    form.elements['client-rate'].value = client.rate;
+                } else {
+                    this.elements.clientModalTitle.textContent = 'Novo Cliente';
+                    form.elements['client-id'].value = '';
+                }
+                this.openModal('client-modal');
+            },
+
+            handleClientFormSubmit(e) {
+                e.preventDefault();
+                const form = e.target.elements;
+                const id = form['client-id'].value;
+                const clientData = {
+                    name: form['client-name'].value,
+                    rate: parseFloat(form['client-rate'].value)
+                };
+
+                if(id) {
+                    const index = this.state.clients.findIndex(c => c.id === id);
+                    if(index > -1) {
+                        this.state.clients[index] = {...this.state.clients[index], ...clientData};
+                    }
+                } else {
+                    this.state.clients.push({id: crypto.randomUUID(), ...clientData});
+                }
+                this.saveData();
+                this.updateUI();
+                this.closeAllModals();
+            },
+            
+            openSlaughterModal(id = null) {
+                const form = this.elements.slaughterForm;
+                form.reset();
+                form.elements['slaughter-client-id'].value = this.state.currentClientId;
+
+                if(id){
+                    const slaughter = this.state.slaughters.find(s => s.id === id);
+                    if(!slaughter) return;
+                    this.elements.slaughterModalTitle.textContent = "Editar Abate";
+                    form.elements['slaughter-id'].value = slaughter.id;
+                    form.elements['slaughter-date'].value = this.formatDateForInput(slaughter.date);
+                    form.elements['slaughter-heads'].value = slaughter.heads;
+                    form.elements['slaughter-revenue-travel'].value = slaughter.revenueTravel || '';
+                    form.elements['slaughter-cost-travel'].value = slaughter.costTravel || '';
+                    form.elements['slaughter-cost-daily'].value = slaughter.costDaily || '';
+                } else {
+                    this.elements.slaughterModalTitle.textContent = "Novo Abate";
+                    form.elements['slaughter-id'].value = '';
+                    form.elements['slaughter-date'].value = this.formatDateForInput(new Date());
+                }
+                this.openModal('slaughter-modal');
+            },
+
+            handleSlaughterFormSubmit(e) {
+                e.preventDefault();
+                const form = e.target.elements;
+                const id = form['slaughter-id'].value;
+                const clientId = form['slaughter-client-id'].value;
+                const client = this.state.clients.find(c => c.id === clientId);
+                if(!client) return;
+
+                const slaughterData = {
+                    clientId: clientId,
+                    date: new Date(form['slaughter-date'].value + "T12:00:00"),
+                    heads: parseInt(form['slaughter-heads'].value),
+                    revenueTravel: parseFloat(form['slaughter-revenue-travel'].value) || 0,
+                    costTravel: parseFloat(form['slaughter-cost-travel'].value) || 0,
+                    costDaily: parseFloat(form['slaughter-cost-daily'].value) || 0,
+                };
+                
+                // Remove old linked transactions if editing
+                if(id) {
+                    this.state.transactions = this.state.transactions.filter(t => t.slaughterId !== id);
+                }
+                
+                const slaughterId = id || crypto.randomUUID();
+
+                // Create new linked transactions
+                const mainRevenue = slaughterData.heads * client.rate + slaughterData.revenueTravel;
+                this.state.transactions.push({
+                    id: crypto.randomUUID(),
+                    description: `Abate - ${client.name}`,
+                    amount: mainRevenue,
+                    dueDate: slaughterData.date,
+                    type: 'revenue',
+                    status: 'pending',
+                    slaughterId: slaughterId
+                });
+                if(slaughterData.costTravel > 0) {
+                    this.state.transactions.push({
+                        id: crypto.randomUUID(),
+                        description: `Custo Deslocamento - ${client.name}`,
+                        amount: slaughterData.costTravel,
+                        dueDate: slaughterData.date,
+                        type: 'expense',
+                        status: 'pending',
+                        slaughterId: slaughterId
+                    });
+                }
+                 if(slaughterData.costDaily > 0) {
+                    this.state.transactions.push({
+                        id: crypto.randomUUID(),
+                        description: `Custo Diarista - ${client.name}`,
+                        amount: slaughterData.costDaily,
+                        dueDate: slaughterData.date,
+                        type: 'expense',
+                        status: 'pending',
+                        slaughterId: slaughterId
+                    });
+                }
+
+                // Save or update slaughter
+                if(id) {
+                    const index = this.state.slaughters.findIndex(s => s.id === id);
+                    this.state.slaughters[index] = { ...this.state.slaughters[index], ...slaughterData };
+                } else {
+                    this.state.slaughters.push({id: slaughterId, ...slaughterData});
+                }
+
+                this.saveData();
+                this.updateUI();
+                this.closeAllModals();
+            },
+
+            confirmDeleteSlaughter(id){
+                 this.showMessage(
+                    'Excluir Abate',
+                    `Deseja realmente excluir este registro de abate? Todas as transações financeiras vinculadas (receitas e despesas) também serão removidas.`,
+                    'warning',
+                    [
+                        { text: 'Confirmar Exclusão', class: 'bg-red-600 hover:bg-red-700', action: () => {
+                            // Remove slaughter and linked transactions
+                            this.state.slaughters = this.state.slaughters.filter(s => s.id !== id);
+                            this.state.transactions = this.state.transactions.filter(t => t.slaughterId !== id);
+                            this.saveData();
+                            this.updateUI();
+                            this.closeAllModals();
+                        }},
+                        { text: 'Cancelar', class: 'bg-gray-700 hover:bg-gray-600', action: () => this.closeAllModals() }
+                    ]
+                );
+            },
+
+
+            // --- DYNAMIC MESSAGE MODAL ---
+            showMessage(title, message, type = 'info', buttons) {
+                this.elements.confirmationTitle.textContent = title;
+                this.elements.confirmationMessage.innerHTML = message; 
+                this.elements.confirmationButtons.innerHTML = '';
+
+                const icons = {
+                    warning: { bg: 'bg-yellow-200', text: 'text-yellow-600', icon: 'alert-triangle' },
+                    error: { bg: 'bg-red-200', text: 'text-red-600', icon: 'alert-circle' },
+                    info: { bg: 'bg-blue-200', text: 'text-blue-600', icon: 'info' }
+                };
+                const selectedIcon = icons[type] || icons.info;
+                this.elements.confirmationIcon.className = `mx-auto flex items-center justify-center h-12 w-12 rounded-full ${selectedIcon.bg} mb-4`;
+                this.elements.confirmationIcon.innerHTML = `<i data-lucide="${selectedIcon.icon}" class="h-6 w-6 ${selectedIcon.text}"></i>`;
+                
+                buttons.forEach(btnInfo => {
+                    const button = document.createElement('button');
+                    button.textContent = btnInfo.text;
+                    button.className = `w-full sm:w-auto inline-flex justify-center rounded-md border border-transparent px-4 py-2 text-base font-medium text-white shadow-sm focus:outline-none ${btnInfo.class}`;
+                    button.onclick = btnInfo.action;
+                    this.elements.confirmationButtons.appendChild(button);
+                });
+                
+                lucide.createIcons();
+                this.openModal('confirmation-modal');
+            },
+
+            // --- HELPER FUNCTIONS ---
+            formatCurrency(value) { return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); },
+            formatDateForInput(date) { const d = new Date(date); let month = '' + (d.getMonth() + 1), day = '' + d.getDate(); if (month.length < 2) month = '0' + month; if (day.length < 2) day = '0' + day; return [d.getFullYear(), month, day].join('-'); },
+            populateIcons() {
+                this.elements.iconSelection.innerHTML = this.iconList.map(icon => `<button type="button" class="icon-btn p-2 rounded-lg bg-gray-600 hover:bg-gray-500 flex items-center justify-center" data-icon="${icon}"><i data-lucide="${icon}" class="w-6 h-6 pointer-events-none"></i></button>`).join('');
+            }
         };
     </script>
 </body>
