@@ -523,7 +523,7 @@
             },
             
             // --- CONSTANTS ---
-            iconList: ['landmark', 'shopping-cart', 'utensils-crossed', 'home', 'car', 'heart-pulse', 'graduation-cap', 'plane', 'briefcase', 'gift', 'paw-print', 'receipt'],
+            iconList: ['landmark', 'shopping-cart', 'utensils-crossed', 'home', 'car', 'heart-pulse', 'graduation-cap', 'plane', 'briefcase', 'gift', 'paw-print', 'receipt', 'piggy-bank', 'scale', 'banknote', 'coins', 'credit-card', 'wallet', 'wrench', 'building', 'truck', 'sprout'],
 
             // --- INITIALIZATION ---
             init() {
@@ -943,6 +943,9 @@
                 this.elements.shortcutEffectiveDateSection.classList.add('hidden');
                 this.elements.shortcutDueDaySection.classList.add('hidden');
                 this.populateIcons();
+                
+                // CORREÇÃO: Chamar lucide.createIcons() após popular os ícones no DOM.
+                lucide.createIcons();
 
                 if(id) { // Editing existing shortcut
                     const shortcut = this.state.shortcuts.find(s => s.id === id); if(!shortcut) return;
