@@ -64,6 +64,7 @@ export function RecurringTransactionForm({
         const monthYearRegex = /^(0[1-9]|1[0-2])\/\d{4}$/;
         if (!monthYearRegex.test(startMonth)) {
           alert('Por favor, insira a data de início no formato MM/AAAA (ex: 01/2024)');
+          setLoading(false);
           return;
         }
 
@@ -118,15 +119,24 @@ export function RecurringTransactionForm({
 
       if (endDate) {
         // Apenas para o mês especificado
-        const transactionDate = new Date(startYear, startMonth - 1, formData.day_of_month);
+        const transactionDate = new Date(startYear, startMonth - 1, formData.day_of_month, 12, 0, 0);
+        
+        // Verificar se o dia existe no mês
+        if (transactionDate.getMonth() !== startMonth - 1) {
+          // Se o dia não existe, usar o último dia do mês
+          transactionDate.setMonth(startMonth, 0);
+        }
         
         // Verificar se já existe transação para este mês
+        const monthStart = new Date(startYear, startMonth - 1, 1);
+        const monthEnd = new Date(startYear, startMonth, 0, 23, 59, 59);
+        
         const { data: existing } = await supabase
           .from('transactions')
           .select('id')
           .eq('recurring_transaction_id', recurringTransactionId)
-          .gte('date', new Date(startYear, startMonth - 1, 1).toISOString())
-          .lt('date', new Date(startYear, startMonth, 1).toISOString())
+          .gte('date', monthStart.toISOString())
+          .lte('date', monthEnd.toISOString())
           .limit(1);
 
         if (!existing || existing.length === 0) {
@@ -143,21 +153,28 @@ export function RecurringTransactionForm({
         }
       } else {
         // Para todos os meses futuros (próximos 2 anos)
-        const currentDate = new Date(startYear, startMonth - 1, formData.day_of_month);
+        const currentDate = new Date(startYear, startMonth - 1, formData.day_of_month, 12, 0, 0);
         const endGenerationDate = new Date();
         endGenerationDate.setFullYear(endGenerationDate.getFullYear() + 2);
 
         while (currentDate <= endGenerationDate) {
+          // Verificar se o dia existe no mês
+          const originalMonth = currentDate.getMonth();
+          if (currentDate.getMonth() !== originalMonth) {
+            // Se o dia não existe, usar o último dia do mês
+            currentDate.setMonth(originalMonth + 1, 0);
+          }
+          
           // Verificar se já existe transação para este mês
           const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-          const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+          const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59);
           
           const { data: existing } = await supabase
             .from('transactions')
             .select('id')
             .eq('recurring_transaction_id', recurringTransactionId)
             .gte('date', monthStart.toISOString())
-            .lt('date', monthEnd.toISOString())
+            .lte('date', monthEnd.toISOString())
             .limit(1);
 
           if (!existing || existing.length === 0) {
@@ -175,6 +192,8 @@ export function RecurringTransactionForm({
 
           // Avançar para o próximo mês
           currentDate.setMonth(currentDate.getMonth() + 1);
+          // Reajustar o dia se necessário
+          currentDate.setDate(formData.day_of_month);
         }
       }
 

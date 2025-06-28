@@ -17,17 +17,18 @@ export async function generateRecurringTransactions(
     );
     
     if (!existingTransaction) {
-      // Ajustar a data para o dia correto do mês
+      // Criar data específica para o dia do mês
       const transactionDate = new Date(
         current.getFullYear(), 
         current.getMonth(), 
-        recurringTransaction.day_of_month
+        recurringTransaction.day_of_month,
+        12, 0, 0, 0 // Meio-dia para evitar problemas de fuso horário
       );
       
       // Verificar se o dia existe no mês (ex: 31 de fevereiro)
       if (transactionDate.getMonth() !== current.getMonth()) {
         // Se o dia não existe, usar o último dia do mês
-        transactionDate.setDate(0);
+        transactionDate.setMonth(current.getMonth() + 1, 0);
       }
       
       const transaction: Transaction = {
@@ -59,7 +60,7 @@ async function checkExistingTransaction(
   date: Date
 ): Promise<boolean> {
   const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-  const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+  const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
   
   const { data, error } = await supabase
     .from('transactions')
