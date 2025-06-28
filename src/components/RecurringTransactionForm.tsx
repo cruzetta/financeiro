@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar, DollarSign, Tag, Type, Clock } from 'lucide-react';
+import { Calendar, DollarSign, Tag, Type, Clock, CalendarDays } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { updateRecurringTransaction } from '../lib/recurringTransactions';
@@ -21,6 +21,13 @@ export function RecurringTransactionForm({
   const [effectiveDate, setEffectiveDate] = useState('');
   const [showEffectiveDate, setShowEffectiveDate] = useState(false);
   
+  // Novos estados para data de início e periodicidade
+  const [startMonth, setStartMonth] = useState(() => {
+    const now = new Date();
+    return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
+  });
+  const [isRecurring, setIsRecurring] = useState(true);
+  
   const [formData, setFormData] = useState({
     description: recurringTransaction?.description || '',
     amount: recurringTransaction?.amount || 0,
@@ -32,6 +39,13 @@ export function RecurringTransactionForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    // Validar formato da data de início
+    const monthYearRegex = /^(0[1-9]|1[0-2])\/\d{4}$/;
+    if (!monthYearRegex.test(startMonth)) {
+      alert('Por favor, insira a data de início no formato MM/AAAA (ex: 01/2024)');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -53,7 +67,15 @@ export function RecurringTransactionForm({
           effectiveFromDate
         );
       } else {
-        // Criação
+        // Criação - calcular data de fim se não for recorrente
+        const [month, year] = startMonth.split('/').map(Number);
+        let endDate = null;
+        
+        if (!isRecurring) {
+          // Se não é recorrente, define o fim do mês especificado
+          endDate = new Date(year, month, 0, 23, 59, 59); // Último dia do mês
+        }
+
         const { error } = await supabase
           .from('recurring_transactions')
           .insert({
@@ -64,9 +86,13 @@ export function RecurringTransactionForm({
             day_of_month: formData.day_of_month,
             user_id: user.id,
             is_active: true,
+            end_date: endDate?.toISOString(),
           });
 
         if (error) throw error;
+
+        // Gerar transações a partir da data especificada
+        await generateTransactionsFromStartDate(month, year, endDate);
       }
 
       onSuccess();
@@ -78,11 +104,81 @@ export function RecurringTransactionForm({
     }
   };
 
+  const generateTransactionsFromStartDate = async (startMonth: number, startYear: number, endDate: Date | null) => {
+    try {
+      // Buscar o atalho recém-criado
+      const { data: recurringTransactions, error } = await supabase
+        .from('recurring_transactions')
+        .select('*')
+        .eq('user_id', user?.id)
+        .eq('description', formData.description)
+        .eq('amount', formData.amount)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (error || !recurringTransactions || recurringTransactions.length === 0) {
+        throw new Error('Erro ao buscar atalho criado');
+      }
+
+      const recurringTransaction = recurringTransactions[0];
+      const transactions = [];
+
+      if (endDate) {
+        // Apenas para o mês especificado
+        const transactionDate = new Date(startYear, startMonth - 1, formData.day_of_month);
+        transactions.push({
+          description: formData.description,
+          amount: formData.amount,
+          type: formData.type,
+          category: formData.category,
+          date: transactionDate.toISOString(),
+          status: 'pending',
+          recurring_transaction_id: recurringTransaction.id,
+          user_id: user?.id,
+        });
+      } else {
+        // Para todos os meses futuros (próximos 2 anos)
+        const currentDate = new Date(startYear, startMonth - 1, formData.day_of_month);
+        const endGenerationDate = new Date();
+        endGenerationDate.setFullYear(endGenerationDate.getFullYear() + 2);
+
+        while (currentDate <= endGenerationDate) {
+          transactions.push({
+            description: formData.description,
+            amount: formData.amount,
+            type: formData.type,
+            category: formData.category,
+            date: new Date(currentDate).toISOString(),
+            status: 'pending',
+            recurring_transaction_id: recurringTransaction.id,
+            user_id: user?.id,
+          });
+
+          // Avançar para o próximo mês
+          currentDate.setMonth(currentDate.getMonth() + 1);
+        }
+      }
+
+      if (transactions.length > 0) {
+        const { error: insertError } = await supabase
+          .from('transactions')
+          .insert(transactions);
+
+        if (insertError) {
+          throw insertError;
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao gerar transações:', error);
+      // Não falha o processo principal, apenas loga o erro
+    }
+  };
+
   const today = new Date().toISOString().split('T')[0];
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-6">
             {recurringTransaction ? 'Editar Atalho Fixo' : 'Novo Atalho Fixo'}
@@ -174,6 +270,73 @@ export function RecurringTransactionForm({
                 </select>
               </div>
             </div>
+
+            {/* Novos campos para data de início e periodicidade */}
+            {!recurringTransaction && (
+              <div className="border-t pt-4 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Data de início (MM/AAAA)
+                  </label>
+                  <div className="relative">
+                    <CalendarDays className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                    <input
+                      type="text"
+                      value={startMonth}
+                      onChange={(e) => setStartMonth(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="01/2024"
+                      pattern="^(0[1-9]|1[0-2])\/\d{4}$"
+                      title="Formato: MM/AAAA (ex: 01/2024)"
+                      required
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Especifique o mês e ano de início no formato MM/AAAA
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-3">
+                    Periodicidade
+                  </label>
+                  <div className="space-y-2">
+                    <div className="flex items-center">
+                      <input
+                        type="radio"
+                        id="recurring"
+                        name="periodicity"
+                        checked={isRecurring}
+                        onChange={() => setIsRecurring(true)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <label htmlFor="recurring" className="ml-2 text-sm text-gray-700">
+                        Recorrente - criar para todos os meses futuros
+                      </label>
+                    </div>
+                    <div className="flex items-center">
+                      <input
+                        type="radio"
+                        id="single"
+                        name="periodicity"
+                        checked={!isRecurring}
+                        onChange={() => setIsRecurring(false)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                      />
+                      <label htmlFor="single" className="ml-2 text-sm text-gray-700">
+                        Único - criar apenas para o mês especificado
+                      </label>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {isRecurring 
+                      ? 'O atalho será aplicado mensalmente a partir da data de início'
+                      : 'O atalho será aplicado apenas no mês especificado'
+                    }
+                  </p>
+                </div>
+              </div>
+            )}
 
             {recurringTransaction && (
               <div className="border-t pt-4">
