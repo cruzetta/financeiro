@@ -17,13 +17,26 @@ export async function generateRecurringTransactions(
     );
     
     if (!existingTransaction) {
+      // Ajustar a data para o dia correto do mês
+      const transactionDate = new Date(
+        current.getFullYear(), 
+        current.getMonth(), 
+        recurringTransaction.day_of_month
+      );
+      
+      // Verificar se o dia existe no mês (ex: 31 de fevereiro)
+      if (transactionDate.getMonth() !== current.getMonth()) {
+        // Se o dia não existe, usar o último dia do mês
+        transactionDate.setDate(0);
+      }
+      
       const transaction: Transaction = {
         id: crypto.randomUUID(),
         description: recurringTransaction.description,
         amount: recurringTransaction.amount,
         type: recurringTransaction.type,
         category: recurringTransaction.category,
-        date: new Date(current.getFullYear(), current.getMonth(), recurringTransaction.day_of_month),
+        date: transactionDate,
         status: 'pending',
         recurring_transaction_id: recurringTransaction.id,
         user_id: recurringTransaction.user_id,
@@ -111,9 +124,20 @@ export async function updateRecurringTransaction(
     
     // 5. Insere as novas transações
     if (newTransactions.length > 0) {
+      const transactionsToInsert = newTransactions.map(t => ({
+        description: t.description,
+        amount: t.amount,
+        type: t.type,
+        category: t.category,
+        date: t.date.toISOString(),
+        status: t.status,
+        recurring_transaction_id: t.recurring_transaction_id,
+        user_id: t.user_id
+      }));
+      
       const { error: insertError } = await supabase
         .from('transactions')
-        .insert(newTransactions);
+        .insert(transactionsToInsert);
       
       if (insertError) {
         throw insertError;
@@ -225,9 +249,20 @@ export async function processRecurringTransactions(): Promise<void> {
       );
       
       if (transactions.length > 0) {
+        const transactionsToInsert = transactions.map(t => ({
+          description: t.description,
+          amount: t.amount,
+          type: t.type,
+          category: t.category,
+          date: t.date.toISOString(),
+          status: t.status,
+          recurring_transaction_id: t.recurring_transaction_id,
+          user_id: t.user_id
+        }));
+        
         const { error: insertError } = await supabase
           .from('transactions')
-          .insert(transactions);
+          .insert(transactionsToInsert);
         
         if (insertError) {
           console.error('Erro ao inserir transações recorrentes:', insertError);
@@ -292,5 +327,66 @@ export async function validateRecurringTransactions(): Promise<void> {
     
   } catch (error) {
     console.error('Erro ao validar transações recorrentes:', error);
+  }
+}
+
+// Função para limpar duplicatas existentes
+export async function cleanupDuplicateTransactions(userId: string): Promise<void> {
+  try {
+    // Buscar todas as transações do usuário ordenadas por data
+    const { data: transactions, error } = await supabase
+      .from('transactions')
+      .select('id, date, recurring_transaction_id, description, amount')
+      .eq('user_id', userId)
+      .not('recurring_transaction_id', 'is', null)
+      .order('date');
+    
+    if (error || !transactions) {
+      return;
+    }
+    
+    // Agrupar por recurring_transaction_id e mês/ano
+    const groups = new Map<string, Map<string, string[]>>();
+    
+    for (const transaction of transactions) {
+      const recurringId = transaction.recurring_transaction_id!;
+      const date = new Date(transaction.date);
+      const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+      
+      if (!groups.has(recurringId)) {
+        groups.set(recurringId, new Map());
+      }
+      
+      const monthGroups = groups.get(recurringId)!;
+      if (!monthGroups.has(monthKey)) {
+        monthGroups.set(monthKey, []);
+      }
+      
+      monthGroups.get(monthKey)!.push(transaction.id);
+    }
+    
+    // Remover duplicatas
+    for (const [recurringId, monthGroups] of groups) {
+      for (const [monthKey, transactionIds] of monthGroups) {
+        if (transactionIds.length > 1) {
+          // Manter apenas a primeira transação, remover as outras
+          const toRemove = transactionIds.slice(1);
+          
+          const { error: deleteError } = await supabase
+            .from('transactions')
+            .delete()
+            .in('id', toRemove);
+          
+          if (deleteError) {
+            console.error('Erro ao remover duplicatas:', deleteError);
+          } else {
+            console.log(`Removidas ${toRemove.length} duplicatas para ${recurringId} no mês ${monthKey}`);
+          }
+        }
+      }
+    }
+    
+  } catch (error) {
+    console.error('Erro ao limpar duplicatas:', error);
   }
 }

@@ -21,7 +21,7 @@ export function RecurringTransactionForm({
   const [effectiveDate, setEffectiveDate] = useState('');
   const [showEffectiveDate, setShowEffectiveDate] = useState(false);
   
-  // Novos estados para data de início e periodicidade
+  // Estados para data de início e periodicidade
   const [startMonth, setStartMonth] = useState(() => {
     const now = new Date();
     return `${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()}`;
@@ -39,13 +39,6 @@ export function RecurringTransactionForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
-
-    // Validar formato da data de início
-    const monthYearRegex = /^(0[1-9]|1[0-2])\/\d{4}$/;
-    if (!monthYearRegex.test(startMonth)) {
-      alert('Por favor, insira a data de início no formato MM/AAAA (ex: 01/2024)');
-      return;
-    }
 
     setLoading(true);
     try {
@@ -67,6 +60,13 @@ export function RecurringTransactionForm({
           effectiveFromDate
         );
       } else {
+        // Validar formato da data de início
+        const monthYearRegex = /^(0[1-9]|1[0-2])\/\d{4}$/;
+        if (!monthYearRegex.test(startMonth)) {
+          alert('Por favor, insira a data de início no formato MM/AAAA (ex: 01/2024)');
+          return;
+        }
+
         // Criação - calcular data de fim se não for recorrente
         const [month, year] = startMonth.split('/').map(Number);
         let endDate = null;
@@ -76,7 +76,8 @@ export function RecurringTransactionForm({
           endDate = new Date(year, month, 0, 23, 59, 59); // Último dia do mês
         }
 
-        const { error } = await supabase
+        // Criar o atalho fixo
+        const { data: newRecurring, error } = await supabase
           .from('recurring_transactions')
           .insert({
             description: formData.description,
@@ -87,12 +88,14 @@ export function RecurringTransactionForm({
             user_id: user.id,
             is_active: true,
             end_date: endDate?.toISOString(),
-          });
+          })
+          .select()
+          .single();
 
         if (error) throw error;
 
         // Gerar transações a partir da data especificada
-        await generateTransactionsFromStartDate(month, year, endDate);
+        await generateTransactionsFromStartDate(newRecurring.id, month, year, endDate);
       }
 
       onSuccess();
@@ -104,38 +107,40 @@ export function RecurringTransactionForm({
     }
   };
 
-  const generateTransactionsFromStartDate = async (startMonth: number, startYear: number, endDate: Date | null) => {
+  const generateTransactionsFromStartDate = async (
+    recurringTransactionId: string, 
+    startMonth: number, 
+    startYear: number, 
+    endDate: Date | null
+  ) => {
     try {
-      // Buscar o atalho recém-criado
-      const { data: recurringTransactions, error } = await supabase
-        .from('recurring_transactions')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('description', formData.description)
-        .eq('amount', formData.amount)
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (error || !recurringTransactions || recurringTransactions.length === 0) {
-        throw new Error('Erro ao buscar atalho criado');
-      }
-
-      const recurringTransaction = recurringTransactions[0];
       const transactions = [];
 
       if (endDate) {
         // Apenas para o mês especificado
         const transactionDate = new Date(startYear, startMonth - 1, formData.day_of_month);
-        transactions.push({
-          description: formData.description,
-          amount: formData.amount,
-          type: formData.type,
-          category: formData.category,
-          date: transactionDate.toISOString(),
-          status: 'pending',
-          recurring_transaction_id: recurringTransaction.id,
-          user_id: user?.id,
-        });
+        
+        // Verificar se já existe transação para este mês
+        const { data: existing } = await supabase
+          .from('transactions')
+          .select('id')
+          .eq('recurring_transaction_id', recurringTransactionId)
+          .gte('date', new Date(startYear, startMonth - 1, 1).toISOString())
+          .lt('date', new Date(startYear, startMonth, 1).toISOString())
+          .limit(1);
+
+        if (!existing || existing.length === 0) {
+          transactions.push({
+            description: formData.description,
+            amount: formData.amount,
+            type: formData.type,
+            category: formData.category,
+            date: transactionDate.toISOString(),
+            status: 'pending',
+            recurring_transaction_id: recurringTransactionId,
+            user_id: user?.id,
+          });
+        }
       } else {
         // Para todos os meses futuros (próximos 2 anos)
         const currentDate = new Date(startYear, startMonth - 1, formData.day_of_month);
@@ -143,16 +148,30 @@ export function RecurringTransactionForm({
         endGenerationDate.setFullYear(endGenerationDate.getFullYear() + 2);
 
         while (currentDate <= endGenerationDate) {
-          transactions.push({
-            description: formData.description,
-            amount: formData.amount,
-            type: formData.type,
-            category: formData.category,
-            date: new Date(currentDate).toISOString(),
-            status: 'pending',
-            recurring_transaction_id: recurringTransaction.id,
-            user_id: user?.id,
-          });
+          // Verificar se já existe transação para este mês
+          const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+          const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+          
+          const { data: existing } = await supabase
+            .from('transactions')
+            .select('id')
+            .eq('recurring_transaction_id', recurringTransactionId)
+            .gte('date', monthStart.toISOString())
+            .lt('date', monthEnd.toISOString())
+            .limit(1);
+
+          if (!existing || existing.length === 0) {
+            transactions.push({
+              description: formData.description,
+              amount: formData.amount,
+              type: formData.type,
+              category: formData.category,
+              date: new Date(currentDate).toISOString(),
+              status: 'pending',
+              recurring_transaction_id: recurringTransactionId,
+              user_id: user?.id,
+            });
+          }
 
           // Avançar para o próximo mês
           currentDate.setMonth(currentDate.getMonth() + 1);
@@ -170,7 +189,7 @@ export function RecurringTransactionForm({
       }
     } catch (error) {
       console.error('Erro ao gerar transações:', error);
-      // Não falha o processo principal, apenas loga o erro
+      throw error;
     }
   };
 
@@ -271,7 +290,7 @@ export function RecurringTransactionForm({
               </div>
             </div>
 
-            {/* Novos campos para data de início e periodicidade */}
+            {/* Campos para data de início e periodicidade - apenas para novos atalhos */}
             {!recurringTransaction && (
               <div className="border-t pt-4 space-y-4">
                 <div>
